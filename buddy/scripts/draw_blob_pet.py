@@ -49,6 +49,7 @@ PALETTE = {
     "S": 0x7FC8F8,  # sweat drop
     "Z": 0xC9D6FF,  # sleep Z's
     "!": 0xFFE14D,  # attention mark
+    "R": 0xFF5C7A,  # hearts
 }
 
 
@@ -76,6 +77,14 @@ class Frame:
             for dx, ch in enumerate(row):
                 if ch == "#":
                     self.put(x + dx, y + dy, c)
+
+    def shifted(self, dx):
+        """Copy of this frame moved dx pixels sideways (for wobbles)."""
+        g = Frame()
+        for y in range(SIZE):
+            for x in range(SIZE):
+                g.put(x + dx, y, self.px[y][x])
+        return g
 
 
 # ---- parts -----------------------------------------------------------------
@@ -142,6 +151,8 @@ def eye(f, x, y, kind):
         f.stamp(x - 1, y + 1, ("#..#", ".##."), "K")
     elif kind == "happy":  # ^ ^
         f.stamp(x - 1, y + 1, (".##.", "#..#"), "K")
+    elif kind == "x":  # dizzy
+        f.stamp(x - 1, y, ("#..#", ".##.", "#..#"), "K")
 
 
 def eyes(f, top, kind):
@@ -169,6 +180,11 @@ def mouth(f, eye_y, kind):
     elif kind == "focus":  # tongue-out concentration
         f.rect(14, y + 1, 4, 1, "K")
         f.put(16, y + 2, "P")
+    elif kind == "wavy":
+        f.stamp(13, y + 1, ("#.#.#.", ".#.#.#"), "K")
+    elif kind == "grin":
+        f.stamp(13, y, ("######", ".#PP#."), "K")
+        f.rect(15, y + 1, 2, 1, "P")
 
 
 def antenna(f, top, spark):
@@ -207,6 +223,17 @@ def sweat(f, x, y):
     f.stamp(x, y, ("..#.", ".##.", "####", "####", ".##."), "S")
 
 
+def star(f, x, y):
+    f.stamp(x, y, (".#.", "###", ".#."), "Y")
+
+
+def heart(f, x, y, big=True):
+    if big:
+        f.stamp(x, y, (".#.#.", "#####", "#####", ".###.", "..#.."), "R")
+    else:
+        f.stamp(x, y, ("#.#", "###", ".#."), "R")
+
+
 # ---- frames ----------------------------------------------------------------
 
 
@@ -226,7 +253,12 @@ def make(top, eye_kind, mouth_kind, spark, cheek=True, bottom=None, feet_y=None,
         bang(f, *extra["bang"])
     if "sweat" in extra:
         sweat(f, *extra["sweat"])
-    return f
+    for x, y in extra.get("stars", ()):
+        star(f, x, y)
+    for x, y, big in extra.get("hearts", ()):
+        heart(f, x, y, big)
+    dx = extra.get("dx", 0)
+    return f.shifted(dx) if dx else f
 
 
 def frames():
@@ -262,11 +294,30 @@ def frames():
     ]
     attention_seq = [0, 1]
 
+    # Shaken: X eyes, wobbly mouth, swaying side to side, stars circling.
+    dizzy = [
+        make(T, "x", "wavy", "off", dx=-2, stars=((4, 6), (24, 3))),
+        make(T, "x", "wavy", "off", dx=0, stars=((9, 2), (25, 8))),
+        make(T, "x", "wavy", "off", dx=2, stars=((3, 3), (20, 7))),
+        make(T, "x", "wavy", "off", dx=0, stars=((5, 9), (19, 2))),
+    ]
+    dizzy_seq = [0, 1, 2, 3]
+
+    # Petted / quick approval: happy eyes, grin, hearts floating up.
+    hearts = [
+        make(T, "happy", "grin", "small", hearts=((24, 8, False),)),
+        make(T - 1, "happy", "grin", "big", bottom=27, feet_y=28, hearts=((24, 4, True), (4, 8, False))),
+        make(T, "happy", "grin", "small", hearts=((25, 0, True), (3, 4, True))),
+    ]
+    hearts_seq = [0, 1, 2]
+
     return {
         "idle": (220, idle, idle_seq),
         "sleep": (650, sleep, sleep_seq),
         "busy": (150, busy, busy_seq),
         "attention": (200, attention, attention_seq),
+        "dizzy": (110, dizzy, dizzy_seq),
+        "heart": (240, hearts, hearts_seq),
     }
 
 

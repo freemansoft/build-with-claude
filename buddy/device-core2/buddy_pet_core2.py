@@ -8,10 +8,17 @@ canvas (``M5.Lcd.newCanvas``, in PSRAM: 96x96x2 = 18 KB each), then
 shown with a single ``push`` — about 3 ms on the Core2, and the whole
 sprite changes at once, so there's no flicker and no partial frames.
 
+Two layers of state:
+- the *base* state (``set_state``): idle / busy / sleep, from what
+  Claude is doing;
+- a *one-shot* (``play_once``): dizzy / heart for a couple of seconds,
+  then back to the base state. A one-shot asked for while the pet is
+  hidden (e.g. hearts for an approval made while the request box was
+  covering it) waits and plays when the pet is shown again.
+
 The caller owns the screen: it calls ``show()`` after clearing the area
-the pet sits in, ``hide()`` before drawing over it, picks the state with
-``set_state()``, and calls ``tick()`` from the main loop (never from a
-BLE callback).
+the pet sits in, ``hide()`` before drawing over it, and ``tick()`` from
+the main loop (never from a BLE callback).
 """
 
 import time
@@ -28,13 +35,19 @@ _LCD = M5.Lcd
 
 
 class Pet:
-    def __init__(self, x, y, bg):
+    def __init__(self, x, y, bg, scale=None):
+        """``scale`` overrides the art's default (3x = 96 px); the
+        request boxes use a 2x (64 px) pet beside the text."""
         self.x = x
         self.y = y
         self.bg = bg
-        self.size = _art.SIZE * _art.SCALE if _art else 0
+        self.scale = scale or (_art.SCALE if _art else 1)
+        self.size = _art.SIZE * self.scale if _art else 0
         self._canvases = {}
-        self._state = "idle"
+        self._base = "idle"
+        self._once = None        # one-shot state playing now
+        self._once_until = 0
+        self._queued = None      # (state, ms) to play when next shown
         self._pos = 0
         self._next_ms = time.ticks_ms()
         self._shown = None
@@ -44,31 +57,58 @@ class Pet:
     def available():
         return _art is not None
 
+    def state(self):
+        return self._once or self._base
+
     def set_state(self, state):
-        if _art is None or state == self._state or state not in _art.STATES:
+        """Base state (idle / busy / sleep)."""
+        if _art is None or state == self._base or state not in _art.STATES:
             return
-        self._state = state
-        self._pos = 0
-        self._next_ms = time.ticks_ms()  # switch on the next tick
+        self._base = state
+        if self._once is None:
+            self._restart()
+
+    def play_once(self, state, ms):
+        """Play ``state`` for ``ms``, then return to the base state."""
+        if _art is None or state not in _art.STATES:
+            return
+        if not self._visible:
+            self._queued = (state, ms)
+            return
+        self._once = state
+        self._once_until = time.ticks_add(time.ticks_ms(), ms)
+        self._restart()
 
     def show(self):
         """The area under the pet was just cleared: draw it again."""
         self._visible = True
         self._shown = None
-        self._next_ms = time.ticks_ms()
+        self._restart()
+        if self._queued is not None:
+            state, ms = self._queued
+            self._queued = None
+            self.play_once(state, ms)
 
     def hide(self):
+        # Drop any one-shot in progress: its end time is only a few
+        # seconds out, and checking it after a long hide could hit
+        # ticks_ms wraparound.
         self._visible = False
+        self._once = None
 
     def tick(self):
         if not self._visible or _art is None:
             return
         now = time.ticks_ms()
+        if self._once is not None and time.ticks_diff(now, self._once_until) >= 0:
+            self._once = None
+            self._restart()
+            now = self._next_ms
         # _next_ms is never more than one frame time ahead (show() and
-        # set_state() reset it to now), so ticks_diff can't wrap here.
+        # the state setters reset it to now), so ticks_diff can't wrap.
         if time.ticks_diff(now, self._next_ms) < 0:
             return
-        ms, seq = _art.STATES[self._state]
+        ms, seq = _art.STATES[self.state()]
         idx = seq[self._pos % len(seq)]
         self._pos = (self._pos + 1) % len(seq)
         self._next_ms = time.ticks_add(now, ms)
@@ -76,10 +116,14 @@ class Pet:
             self._canvas(idx).push(self.x, self.y)
             self._shown = idx
 
+    def _restart(self):
+        self._pos = 0
+        self._next_ms = time.ticks_ms()
+
     def _canvas(self, idx):
         c = self._canvases.get(idx)
         if c is None:
-            s = _art.SCALE
+            s = self.scale
             c = _LCD.newCanvas(self.size, self.size, 16, True)
             c.fillScreen(self.bg)
             data = _art.FRAMES[idx]

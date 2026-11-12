@@ -47,9 +47,10 @@ Connected, top to bottom:
   the link state (`WAITING` / `PAIRING` / `LINKED` / `OFF`).
 - **Queue** — `Running N  Waiting N  Total N` from Desktop's heartbeat.
 - **Request area** (four rows) — an orange **Allow:** box you can answer
-  with A/B, a yellow **Waiting for approval** box to answer in the app,
-  or, with nothing to approve, the [pet](#pet) with Desktop's latest
-  status message beside it.
+  with A/B, a yellow **Waiting for approval** box to answer in the app
+  (both with a small alarmed [pet](#pet) on the left), or, with nothing
+  to approve, the full-size pet with Desktop's latest status message
+  beside it.
 - **Bottom row** — `Today: 53.3k tokens` (the heartbeat's
   `tokens_today`: output tokens since local midnight) and the battery
   (`100% USB` on USB power, `87%` on battery).
@@ -68,10 +69,26 @@ the request area:
 |-------|------|
 | idle | linked, no session running: bobs, blinks, looks around |
 | busy | one or more sessions running: focused, spark flashing, sweating |
-| sleep | no session running for 60 s: eyes closed, Z's drifting up |
+| sleep | no session running for 60 s, or napping (below): eyes closed, Z's drifting up |
+| dizzy | you shook the Core2: X eyes, wobbling, stars (~2 s) |
+| heart | you touched the pet, or approved a request on the device within 5 s of it arriving: hearts float up (~2 s) |
+| attention | a request box is up: a smaller (64 px) pet with wide eyes and a "!" hops beside the request text |
 
-The approve/deny boxes take the pet's place when a request comes in.
-(There are `attention` frames too, not shown yet.)
+**Nap:** lay the Core2 face-down for about a second and the pet sleeps
+with the backlight dimmed; pick it up and it wakes. A request arriving
+ends the nap so the screen is bright when you turn it over.
+
+When a request comes in, the approve/deny box takes the pet's place,
+with the alarmed pet drawn at 2x on the box's left and the request text
+(about 226 px wide) beside it; hearts earned by a quick approval play
+once the box clears. Shake, nap and touch only work while the full-size
+pet is showing.
+
+The motion sensor and touch screen are only read while the pet is on
+screen. Shake is the same test as the Hardware Buddy reference: total
+acceleration jumping more than 0.8 g from its running average.
+No timer runs longer than a few seconds, so nothing depends on
+`ticks_ms` staying in range for days.
 
 ### Art pipeline
 
@@ -96,7 +113,7 @@ with a transparent background and the manifest's palette, then run only
 `gen_pet_frames.py` — `draw_blob_pet.py` would overwrite your PNGs.
 
 `pet_frames.py` stores each frame as runs of
-`(y, x, length, colour)` bytes (about 5.6 KB for all 14 frames). On the
+`(y, x, length, colour)` bytes (about 8.7 KB for all 21 frames). On the
 device, `buddy_pet_core2.py` renders each frame once into an off-screen
 canvas in PSRAM (18 KB each) and shows it with one `push` (about 3 ms),
 so frames change all at once with no flicker.
@@ -132,7 +149,7 @@ Code sessions in Claude Desktop: Bash requests with short commands
 20-byte BLE payload (the app doesn't request a larger MTU), which may
 be why Desktop leaves larger prompts out — untested. Without a request
 id there is nothing to answer, so the device shows a yellow **Waiting
-for approval** box and "Approve in the Claude app". With one session
+for approval** box and "Approve in the app". With one session
 running it also shows the tool call (taken from Desktop's `evt`
 stream); with several, it shows "N waiting for approval" and how many
 sessions are running instead, since the latest tool call may belong to

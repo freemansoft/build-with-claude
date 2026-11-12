@@ -12,7 +12,8 @@
     "#FFD27A",
     "#7FC8F8",
     "#C9D6FF",
-    "#FFE14D"
+    "#FFE14D",
+    "#FF5C7A"
   ],
   "states": {
     "idle": {
@@ -93,6 +94,34 @@
       "seq": [
         0,
         1
+      ]
+    },
+    "dizzy": {
+      "frame_ms": 110,
+      "frames": [
+        "dizzy_0.png",
+        "dizzy_1.png",
+        "dizzy_2.png",
+        "dizzy_3.png"
+      ],
+      "seq": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "heart": {
+      "frame_ms": 240,
+      "frames": [
+        "heart_0.png",
+        "heart_1.png",
+        "heart_2.png"
+      ],
+      "seq": [
+        0,
+        1,
+        2
       ]
     }
   }
