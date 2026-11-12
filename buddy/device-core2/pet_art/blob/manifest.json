@@ -1,0 +1,99 @@
+{
+  "name": "blob",
+  "size": 32,
+  "palette": [
+    "#6E2F1E",
+    "#D97757",
+    "#B55A3C",
+    "#F2A68A",
+    "#1A1110",
+    "#FFFFFF",
+    "#F4A09A",
+    "#FFD27A",
+    "#7FC8F8",
+    "#C9D6FF",
+    "#FFE14D"
+  ],
+  "states": {
+    "idle": {
+      "frame_ms": 220,
+      "frames": [
+        "idle_0.png",
+        "idle_1.png",
+        "idle_2.png",
+        "idle_3.png",
+        "idle_4.png"
+      ],
+      "seq": [
+        0,
+        0,
+        1,
+        1,
+        0,
+        0,
+        1,
+        1,
+        0,
+        2,
+        0,
+        0,
+        1,
+        1,
+        0,
+        3,
+        3,
+        3,
+        0,
+        4,
+        4,
+        4,
+        0,
+        1,
+        1,
+        0,
+        2,
+        0
+      ]
+    },
+    "sleep": {
+      "frame_ms": 650,
+      "frames": [
+        "sleep_0.png",
+        "sleep_1.png",
+        "sleep_2.png"
+      ],
+      "seq": [
+        0,
+        1,
+        2,
+        1
+      ]
+    },
+    "busy": {
+      "frame_ms": 150,
+      "frames": [
+        "busy_0.png",
+        "busy_1.png",
+        "busy_2.png",
+        "busy_3.png"
+      ],
+      "seq": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "attention": {
+      "frame_ms": 200,
+      "frames": [
+        "attention_0.png",
+        "attention_1.png"
+      ],
+      "seq": [
+        0,
+        1
+      ]
+    }
+  }
+}

@@ -20,6 +20,8 @@ TL_DATUM by default on UIFlow 2.0):
     y=30       orange hairline
     y=31..201  main panel (idle / connected / passkey / unpair views)
                connected: queue line y=40, request box y=66..171
+               (with nothing to approve, the box holds the 96x96 pet
+               on the left and Desktop's status message on the right)
     y=176      footer: today's tokens + battery (connected view only)
     y=202      orange hairline
     y=203..239 hint strip: three labels centred over BtnA / BtnB / BtnC
@@ -28,6 +30,8 @@ TL_DATUM by default on UIFlow 2.0):
 import time
 
 import M5
+
+import buddy_pet_core2
 
 # Anthropic palette — same values as buddy_ui_cp.py.
 ORANGE = 0xCC785C
@@ -63,6 +67,13 @@ _BTN_X = (53, 160, 267)
 
 _VIBRATE_LEVEL = 200
 _VIBRATE_MS = 300
+
+# Pet: left side of the request area; status message to its right.
+_PET_X = 8
+_PET_Y = _BOX_Y + 5
+_PET_TEXT_X = 114
+# With no session running for this long, the pet falls asleep.
+_PET_SLEEP_MS = 60 * 1000
 
 
 def _font(name):
@@ -142,6 +153,9 @@ class BuddyUI:
         # (observed for longer commands, ~70+ chars, and question dialogs).
         self._last_tool = None
         self._buzzed_prompt_id = None
+        self._pet = buddy_pet_core2.Pet(_PET_X, _PET_Y, BLACK)
+        self._pet_quiet_since = None  # ticks_ms when sessions went idle
+        self._pet_asleep = False
         _LCD.fillScreen(BLACK)
         self._redraw_chrome()
 
@@ -317,6 +331,28 @@ class BuddyUI:
                 M5.Power.setVibration(0)
             except Exception:
                 pass
+        self._tick_pet()
+
+    def _tick_pet(self):
+        """Pick the pet's state from the latest heartbeat and advance its
+        animation. Only draws while the pet's area is on screen."""
+        if not (self._showing_connected() and self._drawn.get("box") == "pet"):
+            return
+        if self._count("running") > 0:
+            state = "busy"
+            self._pet_quiet_since = None
+            self._pet_asleep = False
+        else:
+            now = time.ticks_ms()
+            if self._pet_quiet_since is None:
+                self._pet_quiet_since = now
+            # Only measured until it falls asleep (60 s), so ticks_ms
+            # wraparound (~6 days) never comes into it.
+            if not self._pet_asleep and time.ticks_diff(now, self._pet_quiet_since) >= _PET_SLEEP_MS:
+                self._pet_asleep = True
+            state = "sleep" if self._pet_asleep else "idle"
+        self._pet.set_state(state)
+        self._pet.tick()
 
     def tick_idle_burst(self, frame, last_tick):
         return frame, last_tick
@@ -359,6 +395,7 @@ class BuddyUI:
         # Full repaint: used for view changes (connect/disconnect,
         # overlays), not for routine heartbeats.
         self._drawn = {}
+        self._pet.hide()
         _LCD.fillRect(0, _MAIN_Y, _W, _MAIN_H, BLACK)
         if self._unpair_prompt:
             self._draw_unpair_overlay()
@@ -444,18 +481,31 @@ class BuddyUI:
                 middle = (("{} sessions running".format(running), CREAM), ("", CREAM))
                 title = "{} waiting for approval".format(waiting)
             rows = ((title, YELLOW),) + middle + (("Approve in the Claude app", GRAY_MID),)
+        elif self._pet.available():
+            # Nothing to approve: the pet on the left, Desktop's status
+            # message wrapped beside it.
+            kind, border = "pet", None
+            msg = _wrap(str(hb.get("msg", "") or ""), _W - 6 - _PET_TEXT_X, _BOX_ROWS)
+            rows = tuple((line, GRAY_MID) for line in msg)
         else:
             kind, border = "msg", None
             rows = ((hb.get("msg", ""), GRAY_MID),) + (("", GRAY_MID),) * 3
 
         if self._drawn.get("box") != kind:
+            if kind != "pet":
+                self._pet.hide()
             _LCD.fillRect(0, _BOX_Y, _W, _BOX_H, BLACK)
             if border is not None:
                 _LCD.drawRect(4, _BOX_Y, _W - 8, _BOX_H, border)
             self._drawn["box"] = kind
             for i in range(_BOX_ROWS):
                 self._drawn.pop("row%d" % i, None)
-        x, right = (12, _W - 12) if border is not None else (8, _W - 6)
+            if kind == "pet":
+                self._pet.show()
+        if kind == "pet":
+            x, right = _PET_TEXT_X, _W - 6
+        else:
+            x, right = (12, _W - 12) if border is not None else (8, _W - 6)
         for i, (text, color) in enumerate(rows):
             self._line("row%d" % i, text, x, _BOX_Y + 5 + 24 * i, color, right)
 

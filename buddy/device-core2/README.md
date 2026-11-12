@@ -10,6 +10,8 @@ touch buttons under the screen). Port of the Cardputer-Adv bundle in
 |------|--------|
 | `buddy_ble.py`, `buddy_protocol.py`, `buddy_state.py`, `buddy_chars.py`, `burst_frames.py` | symlinks to `../device/` — same BLE stack, wire protocol, NVS state and sprite frames |
 | `buddy_ui_core2.py` | Core2 view (320x240, DejaVu18/24/56, vibration on new prompts) |
+| `buddy_pet_core2.py` | plays the pet animation (see [Pet](#pet)) |
+| `pet_frames.py` | the pet's frames — generated from `pet_art/`, don't edit by hand |
 | `apps/claude_buddy.py` | Core2 app loop: touch buttons, real AXP192 battery readings |
 | `main.py` | Core2 launcher (no WiFi, no keyboard) |
 
@@ -46,7 +48,8 @@ Connected, top to bottom:
 - **Queue** — `Running N  Waiting N  Total N` from Desktop's heartbeat.
 - **Request area** (four rows) — an orange **Allow:** box you can answer
   with A/B, a yellow **Waiting for approval** box to answer in the app,
-  or Desktop's latest status message.
+  or, with nothing to approve, the [pet](#pet) with Desktop's latest
+  status message beside it.
 - **Bottom row** — `Today: 53.3k tokens` (the heartbeat's
   `tokens_today`: output tokens since local midnight) and the battery
   (`100% USB` on USB power, `87%` on battery).
@@ -54,6 +57,49 @@ Connected, top to bottom:
 
 Level and approve/deny counts are still kept on the device and reported
 to Claude Desktop, but aren't shown on screen.
+
+## Pet
+
+When nothing is waiting for approval, an animated pixel pet — the
+**blob**, a round Claude-orange critter with an antenna spark — sits in
+the request area:
+
+| State | When |
+|-------|------|
+| idle | linked, no session running: bobs, blinks, looks around |
+| busy | one or more sessions running: focused, spark flashing, sweating |
+| sleep | no session running for 60 s: eyes closed, Z's drifting up |
+
+The approve/deny boxes take the pet's place when a request comes in.
+(There are `attention` frames too, not shown yet.)
+
+### Art pipeline
+
+The art is 32x32 pixel PNGs, drawn on the Core2 at 3x (96x96):
+
+```
+pet_art/blob/
+├── manifest.json   palette, frames per state, playback order, frame time
+├── idle_0.png ...  one transparent PNG per frame
+└── preview.png     every frame at 6x, for review
+```
+
+```bash
+cd buddy
+python3 scripts/draw_blob_pet.py    # (re)draw the blob's PNGs from code
+python3 scripts/gen_pet_frames.py   # PNGs + manifest -> device-core2/pet_frames.py
+```
+
+Both need Pillow (`pip install pillow`). To redraw the pet by hand, edit
+the PNGs in any pixel editor (Piskel, Aseprite, ...), keep them 32x32
+with a transparent background and the manifest's palette, then run only
+`gen_pet_frames.py` — `draw_blob_pet.py` would overwrite your PNGs.
+
+`pet_frames.py` stores each frame as runs of
+`(y, x, length, colour)` bytes (about 5.6 KB for all 14 frames). On the
+device, `buddy_pet_core2.py` renders each frame once into an off-screen
+canvas in PSRAM (18 KB each) and shows it with one `push` (about 3 ms),
+so frames change all at once with no flicker.
 
 ## Buttons
 
