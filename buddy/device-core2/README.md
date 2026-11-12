@@ -43,10 +43,11 @@ Installing sets NVS `uiflow.boot_option=2`, so the Core2 boots into
 
 Connected, top to bottom:
 
-- **Header** — "Claude Buddy" (or the name set from Claude Desktop) and
-  the link state (`WAITING` / `PAIRING` / `LINKED` / `OFF`).
-- **Queue** — `Running N  Waiting N  Total N` from Desktop's heartbeat.
-- **Request area** (four rows) — an orange **Allow:** box you can answer
+- **Header** — the link state on the right (`WAITING` / `PAIRING` /
+  `LINKED` / `OFF`). On the left, while linked, the session counts from
+  Desktop's heartbeat (`Run 1  Wait 0  Total 2`); otherwise "Claude
+  Buddy" (or the name set from Claude Desktop).
+- **Request area** (five rows) — an orange **Allow:** box you can answer
   with A/B, a yellow **Waiting for approval** box to answer in the app
   (both with a small alarmed [pet](#pet) on the left), or, with nothing
   to approve, the full-size pet with Desktop's latest status message
