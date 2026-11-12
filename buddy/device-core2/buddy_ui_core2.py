@@ -20,14 +20,19 @@ TL_DATUM by default on UIFlow 2.0):
     y=30       orange hairline
     y=31..201  main panel (idle / connected / passkey / unpair views)
                connected: queue line y=40, request box y=66..171
+               (with nothing to approve, the box holds the 96x96 pet
+               on the left and Desktop's status message on the right)
     y=176      footer: today's tokens + battery (connected view only)
     y=202      orange hairline
     y=203..239 hint strip: three labels centred over BtnA / BtnB / BtnC
 """
 
+import math
 import time
 
 import M5
+
+import buddy_pet_core2
 
 # Anthropic palette — same values as buddy_ui_cp.py.
 ORANGE = 0xCC785C
@@ -63,6 +68,35 @@ _BTN_X = (53, 160, 267)
 
 _VIBRATE_LEVEL = 200
 _VIBRATE_MS = 300
+
+# Pet: left side of the request area; status message to its right.
+_PET_X = 8
+_PET_Y = _BOX_Y + 5
+_PET_TEXT_X = 114
+# In the request boxes: a 2x (64 px) alarmed pet, centred vertically
+# inside the box border, with the request text to its right.
+_ALERT_X = 10
+_ALERT_Y = _BOX_Y + (_BOX_H - 64) // 2
+_ALERT_TEXT_X = _ALERT_X + 64 + 8
+# With no session running for this long, the pet falls asleep.
+_PET_SLEEP_MS = 60 * 1000
+# One-shot animations (dizzy, hearts) play for this long.
+_PET_ONCE_MS = 2200
+# Approving on the device within this long of the request arriving
+# earns hearts.
+_QUICK_APPROVE_MS = 5000
+# Shake: change in total acceleration (g) from its running average, as
+# in the Hardware Buddy reference firmware.
+_SHAKE_G = 0.8
+# Face-down: z below this (g). Standing on the desk z is about +0.1,
+# lying screen-up about +1.
+_FACE_DOWN_Z = -0.7
+# Face-down counter (sampled every other loop, ~80 ms): nap after 15
+# samples down (~1.2 s), wake after 8 samples not down (~0.6 s). The
+# hysteresis keeps sensor noise from flickering the backlight.
+_NAP_ENTER = 15
+_NAP_EXIT = -8
+_NAP_BRIGHTNESS = 10
 
 
 def _font(name):
@@ -142,6 +176,22 @@ class BuddyUI:
         # (observed for longer commands, ~70+ chars, and question dialogs).
         self._last_tool = None
         self._buzzed_prompt_id = None
+        self._pet = buddy_pet_core2.Pet(_PET_X, _PET_Y, BLACK)
+        self._alert_pet = buddy_pet_core2.Pet(_ALERT_X, _ALERT_Y, BLACK, scale=2)
+        self._alert_pet.set_state("attention")
+        self._pet_quiet_since = None  # ticks_ms when sessions went idle
+        self._pet_asleep = False
+        # Sensors (read only while the pet is on screen).
+        self._accel_base = 1.0
+        self._imu_skip = False
+        self._down = 0            # face-down counter, see _NAP_ENTER/_EXIT
+        self._napping = False
+        self._saved_brightness = None
+        self._touching = False
+        # Quick-approve hearts: set when a new prompt arrives, cleared
+        # once _QUICK_APPROVE_MS has passed (so no long timers).
+        self._prompt_since = 0
+        self._prompt_quick = False
         _LCD.fillScreen(BLACK)
         self._redraw_chrome()
 
@@ -209,6 +259,8 @@ class BuddyUI:
         if pid is not None and pid != self._buzzed_prompt_id:
             self._buzzed_prompt_id = pid
             self._buzz()
+            self._prompt_since = time.ticks_ms()
+            self._prompt_quick = True
         elif pid is None and self._count("waiting") > prev_waiting:
             self._buzz()
 
@@ -260,6 +312,10 @@ class BuddyUI:
             self._draw_footer(stats, battery)
 
     def flash_decision(self, decision: str):
+        if decision == "once" and self._prompt_quick:
+            # Hearts once the request box clears and the pet is back.
+            self._pet.play_once("heart", _PET_ONCE_MS)
+        self._prompt_quick = False
         color = GREEN if decision == "once" else RED
         label = "APPROVED" if decision == "once" else "DENIED"
         self.flash_toast(label, color)
@@ -317,6 +373,99 @@ class BuddyUI:
                 M5.Power.setVibration(0)
             except Exception:
                 pass
+        if self._prompt_quick and (
+            not self._prompt
+            or time.ticks_diff(time.ticks_ms(), self._prompt_since) >= _QUICK_APPROVE_MS
+        ):
+            self._prompt_quick = False
+        self._tick_pet()
+
+    def _tick_pet(self):
+        """Pick the pet's state from the latest heartbeat and sensors, and
+        advance its animation. Only draws while the pet's area is on
+        screen. The small alarmed pet in a request box just animates."""
+        if self._showing_connected() and self._drawn.get("box") in ("prompt", "waiting"):
+            self._alert_pet.tick()
+        if not (self._showing_connected() and self._drawn.get("box") == "pet"):
+            # A request (or another view) took over: you'll want to
+            # read it, so end any face-down nap.
+            if self._napping:
+                self._end_nap()
+            self._down = 0
+            self._touching = False
+            return
+        self._read_sensors()
+        if self._napping:
+            state = "sleep"
+        elif self._count("running") > 0:
+            state = "busy"
+            self._pet_quiet_since = None
+            self._pet_asleep = False
+        else:
+            now = time.ticks_ms()
+            if self._pet_quiet_since is None:
+                self._pet_quiet_since = now
+            # Only measured until it falls asleep (60 s), so ticks_ms
+            # wraparound (~6 days) never comes into it.
+            if not self._pet_asleep and time.ticks_diff(now, self._pet_quiet_since) >= _PET_SLEEP_MS:
+                self._pet_asleep = True
+            state = "sleep" if self._pet_asleep else "idle"
+        self._pet.set_state(state)
+        self._pet.tick()
+
+    def _read_sensors(self):
+        """Shake -> dizzy, face-down -> nap (dimmed screen), touching
+        the pet -> hearts."""
+        # The IMU read takes ~3 ms over I2C, so sample every other loop.
+        self._imu_skip = not self._imu_skip
+        if not self._imu_skip:
+            try:
+                ax, ay, az = M5.Imu.getAccel()
+            except Exception:
+                az = None
+            if az is not None:
+                mag = math.sqrt(ax * ax + ay * ay + az * az)
+                shake = abs(mag - self._accel_base) > _SHAKE_G
+                self._accel_base = self._accel_base * 0.95 + mag * 0.05
+                if shake and not self._napping and self._pet.state() != "dizzy":
+                    self._pet.play_once("dizzy", _PET_ONCE_MS)
+                if az < _FACE_DOWN_Z:
+                    self._down = min(20, self._down + 1)
+                else:
+                    self._down = max(-10, self._down - 1)
+                if not self._napping and self._down >= _NAP_ENTER:
+                    self._start_nap()
+                elif self._napping and self._down <= _NAP_EXIT:
+                    self._end_nap()
+        try:
+            touching = M5.Touch.getCount() > 0
+            if touching and not self._touching:
+                x, y = M5.Touch.getX(), M5.Touch.getY()
+                p = self._pet
+                if p.x <= x < p.x + p.size and p.y <= y < p.y + p.size:
+                    self._pet.play_once("heart", _PET_ONCE_MS)
+            self._touching = touching
+        except Exception:
+            pass
+
+    def _start_nap(self):
+        self._napping = True
+        try:
+            self._saved_brightness = _LCD.getBrightness()
+            _LCD.setBrightness(_NAP_BRIGHTNESS)
+        except Exception as e:
+            print("buddy_ui_core2: dim failed:", e)
+
+    def _end_nap(self):
+        self._napping = False
+        self._pet_asleep = False
+        self._pet_quiet_since = None  # idle again for a minute before sleeping
+        if self._saved_brightness is not None:
+            try:
+                _LCD.setBrightness(self._saved_brightness)
+            except Exception as e:
+                print("buddy_ui_core2: undim failed:", e)
+            self._saved_brightness = None
 
     def tick_idle_burst(self, frame, last_tick):
         return frame, last_tick
@@ -359,6 +508,8 @@ class BuddyUI:
         # Full repaint: used for view changes (connect/disconnect,
         # overlays), not for routine heartbeats.
         self._drawn = {}
+        self._pet.hide()
+        self._alert_pet.hide()
         _LCD.fillRect(0, _MAIN_Y, _W, _MAIN_H, BLACK)
         if self._unpair_prompt:
             self._draw_unpair_overlay()
@@ -418,9 +569,13 @@ class BuddyUI:
         # Lower area (y=66..171, four rows): an orange prompt box
         # (answerable here), a yellow waiting box (approve in the app),
         # or just the status message. Only a change of *kind* clears it.
+        # Request boxes: the alarmed 64 px pet on the left, text beside it.
+        alert = self._alert_pet.available()
+        box_x = _ALERT_TEXT_X if alert else 12
+        box_w = _W - 12 - box_x
         if self._prompt:
             p = self._prompt
-            hint = _wrap(str(p.get("hint", "")), _W - 24, 3)
+            hint = _wrap(str(p.get("hint", "")), box_w, 3)
             kind, border = "prompt", ORANGE
             rows = (("Allow: " + str(p.get("tool", "?")), ORANGE),) + tuple(
                 (line, CREAM) for line in hint
@@ -436,26 +591,46 @@ class BuddyUI:
                 if self._last_tool:
                     name, summary = self._last_tool
                     tool = name + (": " + summary if summary else "")
-                middle = tuple((line, CREAM) for line in _wrap(tool, _W - 24, 2))
+                middle = tuple((line, CREAM) for line in _wrap(tool, box_w, 2))
                 title = "Waiting for approval"
             else:
                 # Several sessions: the latest tool call may belong to a
                 # different session than the one waiting, so don't guess.
                 middle = (("{} sessions running".format(running), CREAM), ("", CREAM))
                 title = "{} waiting for approval".format(waiting)
-            rows = ((title, YELLOW),) + middle + (("Approve in the Claude app", GRAY_MID),)
+            where = "Approve in the app" if alert else "Approve in the Claude app"
+            rows = ((title, YELLOW),) + middle + ((where, GRAY_MID),)
+        elif self._pet.available():
+            # Nothing to approve: the pet on the left, Desktop's status
+            # message wrapped beside it.
+            kind, border = "pet", None
+            msg = _wrap(str(hb.get("msg", "") or ""), _W - 6 - _PET_TEXT_X, _BOX_ROWS)
+            rows = tuple((line, GRAY_MID) for line in msg)
         else:
             kind, border = "msg", None
             rows = ((hb.get("msg", ""), GRAY_MID),) + (("", GRAY_MID),) * 3
 
         if self._drawn.get("box") != kind:
+            if kind != "pet":
+                self._pet.hide()
+            if kind not in ("prompt", "waiting"):
+                self._alert_pet.hide()
             _LCD.fillRect(0, _BOX_Y, _W, _BOX_H, BLACK)
             if border is not None:
                 _LCD.drawRect(4, _BOX_Y, _W - 8, _BOX_H, border)
             self._drawn["box"] = kind
             for i in range(_BOX_ROWS):
                 self._drawn.pop("row%d" % i, None)
-        x, right = (12, _W - 12) if border is not None else (8, _W - 6)
+            if kind == "pet":
+                self._pet.show()
+            elif kind in ("prompt", "waiting"):
+                self._alert_pet.show()
+        if kind == "pet":
+            x, right = _PET_TEXT_X, _W - 6
+        elif kind in ("prompt", "waiting"):
+            x, right = box_x, _W - 12
+        else:
+            x, right = (8, _W - 6)
         for i, (text, color) in enumerate(rows):
             self._line("row%d" % i, text, x, _BOX_Y + 5 + 24 * i, color, right)
 
