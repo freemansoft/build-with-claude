@@ -16,12 +16,14 @@ care which display is underneath. Differences from the Cardputer view:
 Layout (all y values are top-left of the glyph cell; drawString uses
 TL_DATUM by default on UIFlow 2.0):
 
-    y=0..29    header: "Claude Buddy" + connection badge
+    y=0..29    header: connection badge on the right; on the left the
+               session counts ("Run 1  Wait 0  Total 2") while linked,
+               otherwise the title ("Claude Buddy" or a custom name)
     y=30       orange hairline
     y=31..201  main panel (idle / connected / passkey / unpair views)
-               connected: queue line y=40, request box y=66..171
-               (with nothing to approve, the box holds the 96x96 pet
-               on the left and Desktop's status message on the right)
+               connected: request area y=38..167, five rows
+               (with nothing to approve, it holds the 96x96 pet on the
+               left and Desktop's status message on the right)
     y=176      footer: today's tokens + battery (connected view only)
     y=202      orange hairline
     y=203..239 hint strip: three labels centred over BtnA / BtnB / BtnC
@@ -58,9 +60,9 @@ _STRIP_Y = 203
 _MAIN_H = _STRIP_Y - 1 - _MAIN_Y  # stop above the strip hairline
 _FOOTER_Y = 176
 _LINE_H = 22  # DejaVu18 cell is 21 px tall on hardware; +1 for descenders
-_BOX_Y = 66   # request box / message area, just under the queue line
-_BOX_H = 106  # four 24 px rows, ending above the footer at y=176
-_BOX_ROWS = 4
+_BOX_Y = 38   # request box / pet area, just under the header
+_BOX_H = 130  # five 24 px rows + padding, ending above the footer at y=176
+_BOX_ROWS = 5
 
 # Horizontal centres of the three Core2 touch buttons (BtnA/B/C zones
 # are each a third of the 320 px width).
@@ -71,7 +73,7 @@ _VIBRATE_MS = 300
 
 # Pet: left side of the request area; status message to its right.
 _PET_X = 8
-_PET_Y = _BOX_Y + 5
+_PET_Y = _BOX_Y + (_BOX_H - 96) // 2  # 96 px pet, centred vertically
 _PET_TEXT_X = 114
 # In the request boxes: a 2x (64 px) alarmed pet, centred vertically
 # inside the box border, with the request text to its right.
@@ -176,6 +178,7 @@ class BuddyUI:
         # (observed for longer commands, ~70+ chars, and question dialogs).
         self._last_tool = None
         self._buzzed_prompt_id = None
+        self._header_left = None  # last header-left (text, colour, right)
         self._pet = buddy_pet_core2.Pet(_PET_X, _PET_Y, BLACK)
         self._alert_pet = buddy_pet_core2.Pet(_ALERT_X, _ALERT_Y, BLACK, scale=2)
         self._alert_pet.set_state("attention")
@@ -299,9 +302,9 @@ class BuddyUI:
 
     def update_identity(self, name: str, owner: str):
         # No separate identity row on the Core2: a custom name replaces
-        # the "Claude Buddy" title in the header; the default name
-        # ("Buddy") and the owner aren't shown, leaving the panel for
-        # the queue, tokens and permission prompt.
+        # the "Claude Buddy" title in the header (shown while not
+        # linked; linked, the header shows the session counts). The
+        # default name ("Buddy") and the owner aren't shown.
         self._identity_name = name or "Buddy"
         self._identity_owner = owner or ""
         self._draw_header()
@@ -486,13 +489,39 @@ class BuddyUI:
         _LCD.fillRect(0, _HEADER_H, _W, 1, ORANGE)
         _font("DejaVu18")
         icon, color = self._connection_icon()
-        name = self._identity_name
-        title = name if name and name != "Buddy" else "Claude Buddy"
-        title = _clip(title, _W - 24 - _LCD.textWidth(icon))
-        _LCD.setTextColor(ORANGE, DARK)
-        _LCD.drawString(title, 8, 5)
         _LCD.setTextColor(color, DARK)
         _LCD.drawString(icon, _right(8, icon), 5)
+        self._header_left = None
+        self._draw_header_left()
+
+    def _draw_header_left(self):
+        """Left side of the header. Linked: the session counts from
+        Desktop's heartbeat (the pet says "Claude Buddy" well enough, and
+        this frees a row in the main panel). Otherwise: the title — the
+        custom name from Desktop, or "Claude Buddy". Called on every
+        heartbeat, so it only repaints when the text changes."""
+        _font("DejaVu18")
+        icon, _ = self._connection_icon()
+        right = _right(8, icon) - 10
+        if self._connection_state == "encrypted":
+            text = "Run {}  Wait {}  Total {}".format(
+                self._count("running"), self._count("waiting"), self._count("total")
+            )
+            color = WHITE
+        else:
+            name = self._identity_name
+            text = name if name and name != "Buddy" else "Claude Buddy"
+            color = ORANGE
+        sig = (text, color, right)
+        if self._header_left == sig:
+            return
+        self._header_left = sig
+        text = _clip(text, right - 8)
+        _LCD.setTextColor(color, DARK)
+        _LCD.drawString(text, 8, 5)
+        end = 8 + _LCD.textWidth(text)
+        if end < right:
+            _LCD.fillRect(end, 4, right - end, _LINE_H, DARK)
 
     def _connection_icon(self):
         s = self._connection_state
@@ -560,22 +589,20 @@ class BuddyUI:
         """Connected view, drawn incrementally — called on every
         heartbeat, so it must not blank anything that hasn't changed."""
         hb = self._last
+        self._draw_header_left()  # session counts live in the header
         _font("DejaVu18")  # _wrap/_clip below measure in this font
-        queue = "Running {}  Waiting {}  Total {}".format(
-            hb.get("running", 0), hb.get("waiting", 0), hb.get("total", 0)
-        )
-        self._line("queue", queue, 8, 40, WHITE)
 
-        # Lower area (y=66..171, four rows): an orange prompt box
+        # Request area (y=38..167, five rows): an orange prompt box
         # (answerable here), a yellow waiting box (approve in the app),
-        # or just the status message. Only a change of *kind* clears it.
-        # Request boxes: the alarmed 64 px pet on the left, text beside it.
+        # or the pet and the status message. Only a change of *kind*
+        # clears it. Request boxes: the alarmed 64 px pet on the left,
+        # text beside it.
         alert = self._alert_pet.available()
         box_x = _ALERT_TEXT_X if alert else 12
         box_w = _W - 12 - box_x
         if self._prompt:
             p = self._prompt
-            hint = _wrap(str(p.get("hint", "")), box_w, 3)
+            hint = _wrap(str(p.get("hint", "")), box_w, _BOX_ROWS - 1)
             kind, border = "prompt", ORANGE
             rows = (("Allow: " + str(p.get("tool", "?")), ORANGE),) + tuple(
                 (line, CREAM) for line in hint
@@ -591,12 +618,14 @@ class BuddyUI:
                 if self._last_tool:
                     name, summary = self._last_tool
                     tool = name + (": " + summary if summary else "")
-                middle = tuple((line, CREAM) for line in _wrap(tool, box_w, 2))
+                middle = tuple((line, CREAM) for line in _wrap(tool, box_w, _BOX_ROWS - 2))
                 title = "Waiting for approval"
             else:
                 # Several sessions: the latest tool call may belong to a
                 # different session than the one waiting, so don't guess.
-                middle = (("{} sessions running".format(running), CREAM), ("", CREAM))
+                middle = (("{} sessions running".format(running), CREAM),) + (
+                    ("", CREAM),
+                ) * (_BOX_ROWS - 3)
                 title = "{} waiting for approval".format(waiting)
             where = "Approve in the app" if alert else "Approve in the Claude app"
             rows = ((title, YELLOW),) + middle + ((where, GRAY_MID),)
@@ -608,7 +637,7 @@ class BuddyUI:
             rows = tuple((line, GRAY_MID) for line in msg)
         else:
             kind, border = "msg", None
-            rows = ((hb.get("msg", ""), GRAY_MID),) + (("", GRAY_MID),) * 3
+            rows = ((hb.get("msg", ""), GRAY_MID),) + (("", GRAY_MID),) * (_BOX_ROWS - 1)
 
         if self._drawn.get("box") != kind:
             if kind != "pet":
