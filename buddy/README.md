@@ -65,6 +65,7 @@ python3 scripts/repl_run.py --port /dev/cu.usbmodem1101 --script "import os; pri
 ```
 
 `gen_burst_frames.py` regenerates `burst_frames.py` from source sprites.
+`draw_blob_pet.py` and `gen_pet_frames.py` build the Core2's animated pet — see [`device-core2/README.md`](device-core2/README.md#pet).
 
 ## References
 
