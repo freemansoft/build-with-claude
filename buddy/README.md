@@ -2,6 +2,8 @@
 
 MicroPython app bundle for the M5Stack Cardputer-Adv. Installed onto `/flash/` by the [`m5-onboard`](../onboard/) skill — see the [monorepo README](../README.md) for the end-to-end flow.
 
+For the **M5Stack Core2**, see [`device-core2/`](device-core2/README.md): its own launcher, UI and Claude Buddy app, sharing this bundle's `buddy_ble` / `buddy_protocol` / `buddy_state` / `buddy_chars` modules via symlinks.
+
 ## What's on the device
 
 ```
@@ -20,6 +22,32 @@ MicroPython app bundle for the M5Stack Cardputer-Adv. Installed onto `/flash/` b
 ## Claude Buddy (BLE)
 
 Open Claude → Developer menu → **Hardware Buddy** → Connect. BLE-only. Stats (approvals / denials / level) persist across reboots via NVS under the `buddy` namespace.
+
+### Status reply differs from the Hardware Buddy reference (to do)
+
+Claude Desktop polls `{"cmd":"status"}` to fill the Hardware Buddy
+window's stats panel. This bundle's shared `buddy_protocol.py` answers
+in a shape that predates the
+[Hardware Buddy reference](https://github.com/anthropics/claude-desktop-buddy/blob/main/REFERENCE.md),
+so the panel shows less than it could:
+
+| | Reference | This bundle (Cardputer) |
+|---|---|---|
+| Envelope | `{"ack":"status","ok":true,"data":{...}}` | fields at the top level, no `ok` / `data` |
+| `stats.vel` | median **seconds to approve**, last 8 approvals, integer (0 = no data) | approvals **per minute**, float — Desktop shows `--s` |
+| `bat.mA` | negative = charging | always 0 (no battery reader yet) |
+| `stats.nap` | cumulative seconds napping | count of idle periods |
+| `stats.lvl` | from output tokens (50K per level) | from approve + deny count |
+
+The Core2 bundle already sends the reference envelope and `bat.mA`
+sign, and reports `vel` as 0 (velocity not supported yet) — see the
+`_Protocol` subclass in
+[`device-core2/apps/claude_buddy.py`](device-core2/apps/claude_buddy.py)
+and [`device-core2/README.md`](device-core2/README.md#status-reply).
+**Enhancement:** move that envelope (and `vel` = 0) into the shared
+`buddy_protocol.py` so the Cardputer returns the same data (then drop
+the Core2 subclass), and test on a Cardputer.
+`nap` and `lvl` are pet-related and intentionally left as-is on both devices for now.
 
 ## Iterating on device code
 
