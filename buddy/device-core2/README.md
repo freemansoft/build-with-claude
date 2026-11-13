@@ -232,3 +232,72 @@ From the device REPL:
 import esp32; n = esp32.NVS('uiflow'); n.set_u8('boot_option', 1); n.commit()
 import machine; machine.reset()
 ```
+
+## Possible future phases
+
+Ideas that have been scoped but not started. Nothing here is built yet.
+
+- **Tokens feed the pet.** A lifetime output-token total kept on the
+  device; a level-up every 50K tokens with a new `celebrate` animation;
+  a short stats line (level, fed, energy); and `stats.lvl` / `stats.nap`
+  reported in the [Hardware Buddy reference](https://github.com/anthropics/claude-desktop-buddy/blob/main/REFERENCE.md)'s
+  meaning (tokens, nap seconds).
+- **More characters**, e.g. a robot, picked on the device.
+- **Sounds.** Short tones from the Core2's speaker for requests, hearts,
+  dizzy and level-ups, with an off switch and battery-aware use.
+
+### Custom character packs (animated GIFs)
+
+Claude Desktop's Hardware Buddy window can push a *character pack* to
+the device: drag a folder onto its drop target and it's streamed over
+BLE (`char_begin` / `file` / `chunk` / `file_end` / `char_end`, each
+chunk acknowledged). Supporting that on the Core2 would let any
+standard pack replace the blob.
+
+**Pack format vs. this repo's pet art** — they don't match today:
+
+| | `pet_art/blob/` (this repo) | Desktop character pack |
+|---|---|---|
+| Images | one 32x32 PNG per frame, drawn at 3x on the device | one animated GIF per state, 96 px wide (height up to ~140), frames and timing inside the GIF |
+| `manifest.json` | `name`, `size`, `palette`; per state `frame_ms`, `frames`, `seq` | `name`, `colors` (`body`, `bg`, `text`, `textDim`, `ink`); per state a GIF or a list of GIFs that rotate |
+| States | idle, sleep, busy, attention, dizzy, heart | the same plus `celebrate` |
+| Size limit | — | whole folder under 1.8 MB |
+
+**Steps, smallest first:**
+
+1. **Export the blob as a standard pack** (`gen_pet_pack.py`, beside
+   `gen_pet_frames.py`): one 96 px GIF per state (3x nearest-neighbour,
+   transparent background, `seq` unrolled, `frame_ms` as the delay), a
+   reference-style manifest, and `celebrate` reusing `heart` until it
+   has its own frames. The PNGs stay the editable source, and the blob
+   becomes a pack any Hardware Buddy device can load.
+2. **Check the device:** whether this UIFlow build has MicroPython's
+   `viper` emitter (needed to expand palette-indexed frames to RGB565
+   fast enough), and how long decoding a GIF takes.
+3. **A pack player on the Core2:** decode each GIF once into
+   palette-indexed frames on flash (~12 KB per 96x130 frame), then per
+   frame expand to RGB565 and `drawRawBuf` it (~3 ms measured for
+   96x96). The pet area is 96 px wide, so packs fit as-is; taller GIFs
+   are cropped or scaled to the ~130 px area, and the small pet in
+   request boxes is a downscaled copy. Pack frame timing and rotating
+   state lists as in the reference. The blob becomes the built-in
+   default pack, so there's only one format on the device.
+4. **Install packs over USB first:** convert a pack folder on the Mac
+   and copy it with `install_apps.py` — no BLE or security changes.
+5. **Then accept packs from Desktop over BLE:** turn on the receiver
+   in the shared `buddy_chars.py` (switched off today because UIFlow's
+   BLE build can't pair, so the link is unauthenticated) behind an
+   on-device prompt — "Receive character pack *name* (size)? A: accept /
+   B: decline" — keeping its 1.8 MB cap and its rule that files land
+   only under `/flash/buddy/chars/<name>/` and are never run as code.
+   Plus a way to delete a pack and go back to the blob.
+
+**Things to know:**
+
+- **Transfer speed.** Every chunk is acknowledged over a link carrying
+  ~20 bytes per packet (the default BLE MTU), so a 1–2 MB pack could
+  take many minutes. Raising the MTU to 247 should make it several
+  times faster — worth testing before step 5.
+- **Licensing.** Third-party packs (such as the reference repo's "bufo"
+  GIFs, which aren't covered by its MIT license) are fine to load on
+  your own device but shouldn't be committed here.
