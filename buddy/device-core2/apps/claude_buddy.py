@@ -45,6 +45,15 @@ _EXIT_HOLD_MS = 1000
 # full 0 mA, on battery about -75 mA (the board's own draw).
 _ON_BATTERY_MA = -20
 
+# On battery: CPU speed, and whether the 5 V output to the M-Bus/Grove
+# ports is on. Measured on a Core2 v1.0, linked to Claude Desktop (draw
+# from the battery, mA): 86 as-is; 74 at brightness 40; 59 with the
+# 5 V output off as well; 49 at 80 MHz as well; 44 at brightness 10.
+# Nothing in this app uses the ports, and BLE runs fine at 80 MHz. On
+# USB everything goes back to UIFlow's defaults.
+_CPU_HZ_BATTERY = 80000000
+_CPU_HZ_USB = 240000000
+
 # Optional receive log for debugging what Claude Desktop sends. Off
 # unless this file already exists on the device; create it (empty) from
 # the REPL to turn logging on, delete it to turn it off. Lines are
@@ -96,7 +105,22 @@ def _battery():
         return {"pct": 0, "mV": 0, "mA": 0, "usb": True}
 
 
-_TOOL_SUMMARY_KEYS = ("command", "file_path", "path", "pattern", "url", "query", "description")
+def _set_power(ui, on_battery):
+    """Battery: 5 V port output off, CPU at 80 MHz, and the UI's
+    battery brightness rules. USB: UIFlow's defaults."""
+    try:
+        M5.Power.setExtOutput(not on_battery)
+    except Exception as e:
+        print("claude_buddy: 5 V output:", e)
+    try:
+        machine.freq(_CPU_HZ_BATTERY if on_battery else _CPU_HZ_USB)
+    except Exception as e:
+        print("claude_buddy: cpu freq:", e)
+    ui.set_on_battery(on_battery)
+    print("claude_buddy: power ->", "battery" if on_battery else "usb")
+
+
+_TOOL_SUMMARY_KEYS =("command", "file_path", "path", "pattern", "url", "query", "description")
 
 
 def _tool_from_evt(raw):
@@ -263,7 +287,10 @@ def run():
     proto_holder["p"] = proto
 
     ui.set_device_name(ble.advertised_name)
-    ui.update_footer(state.stats(), _battery())
+    batt = _battery()
+    on_battery = not batt["usb"]
+    _set_power(ui, on_battery)
+    ui.update_footer(state.stats(), batt)
     print("Claude Buddy up as", ble.advertised_name)
 
     M5.BtnC.setHoldThresh(_EXIT_HOLD_MS)
@@ -300,6 +327,8 @@ def run():
             # rolls over the 30 s unpair timeout.
             unpair_active = proto.unpair_pending()
 
+            if approve or deny or quit_ or c_tap:
+                ui.note_activity()  # full brightness for a while
             if approve:
                 if unpair_active:
                     proto.confirm_unpair()
@@ -336,7 +365,11 @@ def run():
             now = time.ticks_ms()
             if time.ticks_diff(now, last_footer_ms) >= footer_interval:
                 state.tick_nap()
-                ui.update_footer(state.stats(), _battery())
+                batt = _battery()
+                if (not batt["usb"]) != on_battery:
+                    on_battery = not batt["usb"]
+                    _set_power(ui, on_battery)
+                ui.update_footer(state.stats(), batt)
                 last_footer_ms = now
             if last_toast_ms and time.ticks_diff(now, last_toast_ms) >= toast_dwell_ms:
                 ui.restore_button_hints()

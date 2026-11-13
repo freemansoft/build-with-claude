@@ -98,7 +98,17 @@ _FACE_DOWN_Z = -0.7
 # hysteresis keeps sensor noise from flickering the backlight.
 _NAP_ENTER = 15
 _NAP_EXIT = -8
-_NAP_BRIGHTNESS = 10
+
+# Backlight levels (UIFlow's default is 127). Battery draw measured on a
+# Core2 v1.0 (see apps/claude_buddy.py): 127 -> 40 saves ~12 mA, 40 ->
+# 10 another ~4 mA.
+_BRIGHT_FULL = 127
+_BRIGHT_IDLE = 40     # on battery, nothing happening
+_BRIGHT_ASLEEP = 10   # on battery, pet asleep
+_BRIGHT_NAP = 10      # face-down, battery or USB
+# On battery, full brightness for this long after a button press,
+# touch, shake or plugging in / unplugging.
+_ACTIVE_MS = 30 * 1000
 
 
 def _font(name):
@@ -189,7 +199,12 @@ class BuddyUI:
         self._imu_skip = False
         self._down = 0            # face-down counter, see _NAP_ENTER/_EXIT
         self._napping = False
-        self._saved_brightness = None
+        # Backlight (see _tick_brightness). Starts "active" so the
+        # screen is full brightness for a while after launch.
+        self._on_battery = False
+        self._active = True
+        self._active_since = time.ticks_ms()
+        self._brightness = None
         self._touching = False
         # Quick-approve hearts: set when a new prompt arrives, cleared
         # once _QUICK_APPROVE_MS has passed (so no long timers).
@@ -382,6 +397,7 @@ class BuddyUI:
         ):
             self._prompt_quick = False
         self._tick_pet()
+        self._tick_brightness()
 
     def _tick_pet(self):
         """Pick the pet's state from the latest heartbeat and sensors, and
@@ -432,6 +448,7 @@ class BuddyUI:
                 self._accel_base = self._accel_base * 0.95 + mag * 0.05
                 if shake and not self._napping and self._pet.state() != "dizzy":
                     self._pet.play_once("dizzy", _PET_ONCE_MS)
+                    self.note_activity()
                 if az < _FACE_DOWN_Z:
                     self._down = min(20, self._down + 1)
                 else:
@@ -443,6 +460,7 @@ class BuddyUI:
         try:
             touching = M5.Touch.getCount() > 0
             if touching and not self._touching:
+                self.note_activity()
                 x, y = M5.Touch.getX(), M5.Touch.getY()
                 p = self._pet
                 if p.x <= x < p.x + p.size and p.y <= y < p.y + p.size:
@@ -452,23 +470,59 @@ class BuddyUI:
             pass
 
     def _start_nap(self):
-        self._napping = True
-        try:
-            self._saved_brightness = _LCD.getBrightness()
-            _LCD.setBrightness(_NAP_BRIGHTNESS)
-        except Exception as e:
-            print("buddy_ui_core2: dim failed:", e)
+        self._napping = True  # _tick_brightness dims the screen
 
     def _end_nap(self):
         self._napping = False
         self._pet_asleep = False
         self._pet_quiet_since = None  # idle again for a minute before sleeping
-        if self._saved_brightness is not None:
+        self.note_activity()
+
+    # ---- backlight
+
+    def set_on_battery(self, on_battery: bool):
+        """Battery brightness rules on/off (the app decides from the
+        battery current). A change counts as activity, so plugging in
+        or out lights the screen up."""
+        self._on_battery = bool(on_battery)
+        self.note_activity()
+
+    def note_activity(self):
+        """Something you did (button, touch, shake): full brightness for
+        _ACTIVE_MS."""
+        self._active = True
+        self._active_since = time.ticks_ms()
+
+    def _tick_brightness(self):
+        """Pick the backlight level; only touches the LCD on a change.
+        Face-down nap: dim. On USB: full. On battery: full while a
+        request, pairing or unpair screen is up or for a while after
+        activity, low while idle, lower while the pet sleeps."""
+        if self._active and time.ticks_diff(time.ticks_ms(), self._active_since) >= _ACTIVE_MS:
+            # Checked every loop, so this never waits long enough for
+            # ticks_ms wraparound to matter.
+            self._active = False
+        if self._napping:
+            level = _BRIGHT_NAP
+        elif (
+            not self._on_battery
+            or self._active
+            or self._prompt
+            or self.waiting_in_app()
+            or self._passkey is not None
+            or self._unpair_prompt
+        ):
+            level = _BRIGHT_FULL
+        elif self._pet_asleep:
+            level = _BRIGHT_ASLEEP
+        else:
+            level = _BRIGHT_IDLE
+        if level != self._brightness:
             try:
-                _LCD.setBrightness(self._saved_brightness)
+                _LCD.setBrightness(level)
+                self._brightness = level
             except Exception as e:
-                print("buddy_ui_core2: undim failed:", e)
-            self._saved_brightness = None
+                print("buddy_ui_core2: brightness:", e)
 
     def tick_idle_burst(self, frame, last_tick):
         return frame, last_tick
