@@ -50,6 +50,7 @@ from micropython import const
 _IRQ_CENTRAL_CONNECT = const(1)
 _IRQ_CENTRAL_DISCONNECT = const(2)
 _IRQ_GATTS_WRITE = const(3)
+_IRQ_MTU_EXCHANGED = const(21)
 _IRQ_CONNECTION_UPDATE = const(27)
 _IRQ_ENCRYPTION_UPDATE = const(28)
 _IRQ_GET_SECRET = const(29)
@@ -65,6 +66,17 @@ _FLAG_READ = const(0x0002)
 _FLAG_WRITE_NR = const(0x0004)
 _FLAG_WRITE = const(0x0008)
 _FLAG_NOTIFY = const(0x0010)
+
+# BLE debug logging, off by default. Set to const(1) and reinstall to log
+# to the serial console: every IRQ (event number + data) before dispatch,
+# the rx/tx attribute handles, each received chunk and complete line, and
+# each line sent. Useful for host-specific link problems (it's how the
+# Windows missed-CONNECT issue in _adopt_conn was found). Event numbers:
+# 1 connect, 2 disconnect, 3 GATT write, 21 MTU exchanged, 27 connection
+# update, 28-31 encryption / pairing. Being a const(), the `if _DEBUG_IRQ:`
+# blocks are compiled out entirely when this is 0.
+_DEBUG_IRQ = const(0)
+
 # NOTE: The MicroPython BLE build shipped with UIFlow 2.0 exposes only
 # the basic FLAG_* constants and accepts but ignores bond/mitm/le_secure
 # config knobs. We can't enforce encrypted-only GATT or drive the
@@ -234,6 +246,8 @@ class BuddyBLE:
         self._ble = stack["ble"]
         self._rx_h = stack["rx"]
         self._tx_h = stack["tx"]
+        if _DEBUG_IRQ:
+            print("buddy_ble: handles rx=", self._rx_h, "tx=", self._tx_h)
         self._name = stack["name"]
         self._pairing_supported = stack["pairing"]
 
@@ -308,11 +322,31 @@ class BuddyBLE:
         return self._pairing_supported
 
     def _irq(self, event, data):
+        if _DEBUG_IRQ:
+            try:
+                print("buddy_ble: irq", event, None if data is None else tuple(
+                    bytes(x).hex() if isinstance(x, memoryview) else x
+                    for x in data))
+            except Exception as e:  # never let logging break the IRQ
+                print("buddy_ble: irq", event, "(unprintable)", e)
         if self._shutting_down:
             # App is tearing down — the main loop has already returned
             # and the launcher may be mid-repaint. Don't dispatch any
             # callback or schedule work; just swallow the event.
             return
+        # Windows can bring up a working link without this build ever
+        # delivering _IRQ_CENTRAL_CONNECT: we get an MTU exchange, then
+        # a CENTRAL_DISCONNECT with addr_type 0xff / zero address (how
+        # MicroPython's NimBLE glue reports a connect event with a
+        # non-zero status), and then the link carries on -- connection
+        # updates and GATT writes keep arriving on that handle. Without
+        # this, _conn stays None, every reply is dropped in send(), the
+        # UI sits at "Waiting to connect..." and Claude Desktop waits
+        # forever. Any per-connection event while we think we're idle
+        # means a central IS connected, so adopt that handle.
+        if event in (_IRQ_GATTS_WRITE, _IRQ_CONNECTION_UPDATE, _IRQ_MTU_EXCHANGED):
+            self._adopt_conn(data[0])
+
         if event == _IRQ_CENTRAL_CONNECT:
             conn, _addr_type, _addr = data
             self._conn = conn
@@ -370,7 +404,10 @@ class BuddyBLE:
         elif event == _IRQ_GATTS_WRITE:
             conn, handle = data
             if handle == self._rx_h:
-                self._rx_buf += self._ble.gatts_read(self._rx_h)
+                chunk = self._ble.gatts_read(self._rx_h)
+                if _DEBUG_IRQ:
+                    print("buddy_ble: rx chunk", len(chunk), "tail", bytes(chunk[-3:]).hex())
+                self._rx_buf += chunk
                 # Split on newline, hand each completed line upstream.
                 # Partial trailing data stays in the buffer.
                 while True:
@@ -382,12 +419,32 @@ class BuddyBLE:
                     # so we rebuild with a slice copy. Same cost in
                     # practice since JSON lines are short and rare.
                     self._rx_buf = bytearray(self._rx_buf[nl + 1:])
+                    if _DEBUG_IRQ:
+                        print("buddy_ble: rx line", len(line), line[:160])
                     try:
                         self._on_line(line)
                     except Exception as e:
                         # Don't let a misbehaving handler kill the IRQ
                         # and leave the buffer permanently stuck.
                         print("buddy_ble: line handler exception:", e)
+            elif _DEBUG_IRQ:
+                print("buddy_ble: write to non-rx handle", handle)
+
+    def _adopt_conn(self, conn):
+        """Treat ``conn`` as connected if we missed its CONNECT event."""
+        if self._conn is not None or conn is None or conn == 0xFFFF:
+            return
+        print("buddy_ble: adopting conn", conn, "(no CENTRAL_CONNECT seen)")
+        self._conn = conn
+        self._encrypted = False
+        self._rx_buf = bytearray()
+        # A real CONNECT stops advertising; we may have re-armed it
+        # after the bogus disconnect, so stop it here too.
+        try:
+            self._ble.gap_advertise(None)
+        except OSError:
+            pass
+        self._on_state("connected")
 
     def _rearm_adv(self, _):
         """Scheduler-context trampoline around _advertise.
@@ -411,6 +468,9 @@ class BuddyBLE:
         less bad than crashing — the user can power-cycle, and the
         other apps on the launcher still work.
         """
+        if self._conn is not None:
+            # A central (re)appeared before this ran -- see _adopt_conn.
+            return
         for attempt in range(5):
             # Stop any half-configured adv slot before retrying. Some
             # of the failure modes stick until we explicitly clear.
@@ -516,6 +576,8 @@ class BuddyBLE:
         except OSError as e:
             print("buddy_ble: notify failed:", e)
             return False
+        if _DEBUG_IRQ:
+            print("buddy_ble: tx line", len(payload), payload[:160])
         return True
 
     def disconnect(self):
