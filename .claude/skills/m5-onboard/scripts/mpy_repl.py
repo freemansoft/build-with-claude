@@ -28,7 +28,22 @@ REPL_BAUD = 115200
 
 
 def open_port(port: str, baud: int = REPL_BAUD, timeout: float = 1.0) -> "serial.Serial":
-    return serial.Serial(port, baud, timeout=timeout)
+    """Open the REPL port without pulsing the auto-reset circuit.
+
+    pyserial asserts DTR and RTS on open by default. On UART-bridge
+    boards (CP210x / CH9102) that can glitch EN and reboot the board --
+    on Windows in particular -- so the first Ctrl-C lands mid-boot and
+    the REPL never answers. Setting both low *before* open() leaves the
+    board running (EN high, GPIO0 high). No effect on native USB.
+    """
+    s = serial.Serial()
+    s.port = port
+    s.baudrate = baud
+    s.timeout = timeout
+    s.dtr = False
+    s.rts = False
+    s.open()
+    return s
 
 
 def hard_reset(s: "serial.Serial") -> None:

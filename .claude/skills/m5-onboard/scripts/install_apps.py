@@ -70,6 +70,29 @@ def _paste_or_raise(s, script: str, settle: float = 0.3, what: str = "paste") ->
     return text
 
 
+def _get_to_repl(s, timeout: float = 15.0) -> None:
+    """Interrupt to the REPL and confirm a ``>>>`` prompt, retrying.
+
+    If opening the port rebooted the board (UART-bridge boards on
+    Windows), the first Ctrl-C burst arrives mid-boot and is lost, and
+    every paste after it silently goes nowhere -- which surfaced as
+    "boot_option set didn't confirm" with empty output. Keep
+    interrupting until the prompt shows up or we time out.
+    """
+    deadline = time.time() + timeout
+    while True:
+        out = mpy_repl.interrupt_to_repl(s)
+        if b">>>" in out:
+            return
+        if time.time() > deadline:
+            raise RuntimeError(
+                "No MicroPython REPL prompt after {:.0f}s. Is another program "
+                "(serial monitor, capture window) holding the port?\nLast output:\n{}".format(
+                    timeout, out.decode("utf-8", "replace")))
+        sys.stderr.write("waiting for the REPL prompt...\n")
+        time.sleep(1.0)
+
+
 def _set_user_app_boot_mode(s) -> None:
     """Set NVS ``uiflow.boot_option`` to 2 (user-app mode) so UIFlow's
     stock boot.py runs our ``/flash/main.py`` instead of starting its
@@ -340,7 +363,7 @@ def install(
         # which topology we're on. The short sleep lets any final bytes
         # from pre-install UIFlow activity drain before we Ctrl-C.
         time.sleep(0.3)
-        mpy_repl.interrupt_to_repl(s)
+        _get_to_repl(s)
         mpy_repl.drain(s, wait=0.3)
 
         if "boot.py" in root_basenames:
