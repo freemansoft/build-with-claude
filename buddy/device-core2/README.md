@@ -76,7 +76,8 @@ the request area:
 | attention | a request box is up: a smaller (64 px) pet with wide eyes and a "!" hops beside the request text |
 
 **Nap:** lay the Core2 face-down for about a second and the pet sleeps
-with the backlight dimmed; pick it up and it wakes. A request arriving
+with the backlight dimmed (see [Battery](#battery)); pick it up and it
+wakes. A request arriving
 ends the nap so the screen is bright when you turn it over.
 
 When a request comes in, the approve/deny box takes the pet's place,
@@ -118,6 +119,43 @@ with a transparent background and the manifest's palette, then run only
 device, `buddy_pet_core2.py` renders each frame once into an off-screen
 canvas in PSRAM (18 KB each) and shows it with one `push` (about 3 ms),
 so frames change all at once with no flicker.
+
+## Battery
+
+On battery (detected from the battery current, checked every 3 s), the
+app saves power; plugged into USB, everything stays at UIFlow's
+defaults:
+
+- **5 V port output off** — the 5 V boost that feeds the M-Bus / Grove
+  ports (`M5.Power.setExtOutput`). Nothing in this app uses them.
+- **CPU at 80 MHz** instead of 240 MHz. BLE and the pet run fine.
+- **Backlight follows activity:**
+
+  | Level | When (on battery) |
+  |-------|-------------------|
+  | 127 (full) | a request, pairing or unpair screen is up, or for 30 s after a button press, touch, shake, or plugging in / unplugging |
+  | 40 | idle |
+  | 10 | the pet is asleep (no session running for 60 s) |
+
+  Face-down nap dims to 10 on battery or USB.
+
+### Measurements
+
+Battery draw on a Core2 v1.0 linked to Claude Desktop, read from the
+AXP192 (`M5.Power.getBatteryCurrent`, 10 s average), with each setting
+added on top of the previous one:
+
+| Setting | Draw | Saved |
+|---------|-----:|------:|
+| As it was (brightness 127, 5 V output on, 240 MHz) | 86 mA | — |
+| Brightness 40 | 74 mA | 12 mA |
+| + 5 V port output off | 59 mA | 15 mA |
+| + CPU 80 MHz | 49 mA | 10 mA |
+| + main loop every 100 ms instead of 40 ms | 48 mA | 1 mA — not adopted (slower buttons and touch) |
+| Brightness 10 (instead of 40) | 44 mA | 4 mA |
+
+So idle on battery goes from ~86 mA to ~49 mA (~44 mA with the pet
+asleep): roughly 4.5 h to 8–9 h on the Core2's ~390 mAh battery.
 
 ## Buttons
 
