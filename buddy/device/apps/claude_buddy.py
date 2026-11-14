@@ -215,8 +215,7 @@ def run():
     # mid-way through a sequence of SPI ops to the LCD, interleaving
     # writes and leaving the panel in an inconsistent state. We avoid
     # that by having callbacks only mutate plain Python state and
-    # letting the main loop drain it into UI calls. send_hello stays
-    # in the callback because it's BLE-only — no LCD bus contention.
+    # letting the main loop drain it into UI calls.
     pending_state = [None]
     pending_passkey = [None]
 
@@ -236,17 +235,12 @@ def run():
     def on_state_change(s):
         # The stripped UIFlow 2.0 BLE build doesn't fire
         # _IRQ_ENCRYPTION_UPDATE, so "connected" is terminal. Remap
-        # it to "encrypted" so the UI advances past the PAIR... badge
-        # and the protocol starts emitting its hello.
+        # it to "encrypted" so the UI advances past the PAIR... badge.
         effective = s
         if s == "connected" and ble is not None and not ble.pairing_supported:
             effective = "encrypted"
         print("claude_buddy: state", s, "->", effective)
         pending_state[0] = effective
-        if effective == "encrypted":
-            p = proto_holder["p"]
-            if p is not None:
-                p.send_hello()
 
     # Run a full GC pass before NimBLE init. The controller
     # allocates several large chunks during active(True) — bonding

@@ -83,12 +83,11 @@ the device updates its UI silently.
 
 ## Outbound (device → host)
 
-| Shape                                                                           | When                                                                                                                   |
-| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `{"cmd":"hello","name":..,"owner":..,"version":...}`                            | Once, right after the connection state advances to "encrypted" (or its dummy equivalent on builds without encryption). |
-| `{"cmd":"permission","id":"<prompt id>","decision":"once" \| "deny"}`           | On Y/N keypress while a permission prompt is pending.                                                                  |
-| `{"ack":"status","name":..,"sec":<bool>,"bat":{...},"sys":{...},"stats":{...}}` | In response to `status`. `sec` reflects actual GATT encryption state; `false` on UIFlow 2.0.                           |
-| `{"ack":"<cmd>","ok":bool,...}`                                                 | Generic ack for name/owner/char_*.                                                                                     |
+| Shape                                                                           | When                                                                                         |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `{"cmd":"permission","id":"<prompt id>","decision":"once" \| "deny"}`           | On Y/N keypress while a permission prompt is pending.                                        |
+| `{"ack":"status","name":..,"sec":<bool>,"bat":{...},"sys":{...},"stats":{...}}` | In response to `status`. `sec` reflects actual GATT encryption state; `false` on UIFlow 2.0. |
+| `{"ack":"<cmd>","ok":bool,...}`                                                 | Generic ack for name/owner/char_*.                                                           |
 
 ### Unpair ack shapes
 

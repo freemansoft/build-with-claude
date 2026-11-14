@@ -21,7 +21,6 @@ Device → host messages (what we emit):
     {"ack":"status","name":..,"sec":true,"bat":{...},"sys":{...},"stats":{...}}
     {"ack":"<other>","ok":true}
     {"cmd":"permission","id":"<prompt id>","decision":"once"|"deny"}
-    {"cmd":"hello","name":..,"version":...}
 
 Heartbeat detection: we key on absence of "cmd"/"ack" and presence of
 one of the heartbeat-shape fields. That way we don't need the desktop
@@ -156,23 +155,6 @@ class BuddyProtocol:
             self._pending = {"id": None, "tool": None, "hint": None}
 
     # ----- outbound
-
-    def send_hello(self) -> None:
-        """Called once on BLE encryption-established to announce ourselves.
-
-        The desktop identifies us by the pairing address, but this
-        gives it our friendly name + firmware version up front so the
-        UI can render before the first status round-trip.
-        """
-        ok = self._send(
-            {
-                "cmd": "hello",
-                "name": self.state.name,
-                "owner": self.state.owner,
-                "version": FIRMWARE_VERSION,
-            }
-        )
-        print("buddy_protocol: send_hello ok=", ok)
 
     def _send(self, obj: dict) -> bool:
         line = json.dumps(obj, separators=(",", ":")).encode("utf-8")

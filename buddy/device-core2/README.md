@@ -184,9 +184,9 @@ the gap and the planned fix.
 
 The same subclass reads the `owner` command the reference's way
 (`{"cmd":"owner","name":"Felix"}`; the shared module looks for an
-`owner` key). The Core2 stores the owner and reports it in its
-`hello`, but deliberately doesn't show it on screen: the protocol is
-handled correctly whether or not the display uses it.
+`owner` key). The Core2 stores the owner but deliberately doesn't show
+it on screen: the protocol is handled correctly whether or not the
+display uses it.
 
 `stats.deny` counts only denials pressed on the device (B); requests
 denied in the Claude app never reach it. `stats.nap` (idle periods,

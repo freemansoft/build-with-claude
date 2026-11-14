@@ -299,17 +299,12 @@ def run():
 
     def on_state_change(s):
         # UIFlow 2.0's BLE build has no pairing API, so "connected" is
-        # terminal — treat it as "encrypted" so the UI and protocol
-        # advance.
+        # terminal — treat it as "encrypted" so the UI advances.
         effective = s
         if s == "connected" and ble is not None and not ble.pairing_supported:
             effective = "encrypted"
         print("claude_buddy: state", s, "->", effective)
         pending_state[0] = effective
-        if effective == "encrypted":
-            p = proto_holder["p"]
-            if p is not None:
-                p.send_hello()
 
     gc.collect()
     print("claude_buddy: gc done, free=", gc.mem_free())
