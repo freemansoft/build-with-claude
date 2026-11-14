@@ -137,7 +137,7 @@ class CharReceiver:
             return {
                 "ack": cmd,
                 "ok": False,
-                "err": "file push disabled on unauthenticated link",
+                "error": "file push disabled on unauthenticated link",
             }
         # Unreachable on this build (handle() is only called for the
         # gated cmds above), but kept for parity with future re-enable:
@@ -150,7 +150,7 @@ class CharReceiver:
         self._close_fp()
         name = _safe_segment(msg.get("name", ""))
         if not name:
-            return {"ack": "char_begin", "ok": False, "err": "empty name"}
+            return {"ack": "char_begin", "ok": False, "error": "empty name"}
         self._current_char = name
         self._bytes_this_pack = 0
         _ensure_dir("{}/{}".format(CHARS_ROOT, name))
@@ -163,17 +163,17 @@ class CharReceiver:
         # like a valid (just slightly truncated) blob.
         self._close_fp()
         if self._current_char is None:
-            return {"ack": "file", "ok": False, "err": "no char context"}
+            return {"ack": "file", "ok": False, "error": "no char context"}
         rel = _safe_segment(msg.get("path", ""))
         if not rel:
-            return {"ack": "file", "ok": False, "err": "empty path"}
+            return {"ack": "file", "ok": False, "error": "empty path"}
         size = int(msg.get("size", 0))
         # Declared size must be non-negative AND fit within the global
         # pack ceiling. The actually-received-bytes check happens in
         # _chunk; this is the early reject for hosts that announce a
         # too-large file up front.
         if size < 0 or self._bytes_this_pack + size > MAX_PACK_BYTES:
-            return {"ack": "file", "ok": False, "err": "pack too large"}
+            return {"ack": "file", "ok": False, "error": "pack too large"}
         full = "{}/{}/{}".format(CHARS_ROOT, self._current_char, rel)
         # Build parent dirs as needed so nested layouts (fonts/, anims/)
         # work without the desktop having to send per-dir commands.
@@ -182,19 +182,19 @@ class CharReceiver:
         try:
             fp = open(full + ".part", "wb")
         except OSError as e:
-            return {"ack": "file", "ok": False, "err": str(e)}
+            return {"ack": "file", "ok": False, "error": str(e)}
         self._current_file = {"path": full, "size": size, "written": 0, "fp": fp}
         return {"ack": "file", "ok": True, "path": full}
 
     def _chunk(self, msg):
         f = self._current_file
         if f is None:
-            return {"ack": "chunk", "ok": False, "err": "no file"}
+            return {"ack": "chunk", "ok": False, "error": "no file"}
         data_b64 = msg.get("data", "")
         try:
             data = _b64.a2b_base64(data_b64)
         except Exception as e:
-            return {"ack": "chunk", "ok": False, "err": "b64: " + str(e)}
+            return {"ack": "chunk", "ok": False, "error": "b64: " + str(e)}
         # Bound by ACTUAL bytes, not just declared size. A host that
         # declared size=0 (or any small value) and tried to stream
         # forever would otherwise pass the begin-time check and fill
@@ -203,15 +203,15 @@ class CharReceiver:
         n = len(data)
         if f["written"] + n > f["size"]:
             self._close_fp()
-            return {"ack": "chunk", "ok": False, "err": "exceeds declared size"}
+            return {"ack": "chunk", "ok": False, "error": "exceeds declared size"}
         if self._bytes_this_pack + n > MAX_PACK_BYTES:
             self._close_fp()
-            return {"ack": "chunk", "ok": False, "err": "pack too large"}
+            return {"ack": "chunk", "ok": False, "error": "pack too large"}
         try:
             f["fp"].write(data)
         except OSError as e:
             self._close_fp()
-            return {"ack": "chunk", "ok": False, "err": str(e)}
+            return {"ack": "chunk", "ok": False, "error": str(e)}
         f["written"] += n
         self._bytes_this_pack += n
         # We don't ack every chunk; the desktop relies on TCP-style
@@ -222,7 +222,7 @@ class CharReceiver:
     def _end_file(self, msg):
         f = self._current_file
         if f is None:
-            return {"ack": "file_end", "ok": False, "err": "no file"}
+            return {"ack": "file_end", "ok": False, "error": "no file"}
         # Truncated transfer: written < declared size. Reject and
         # remove the .part — partials never get atomically renamed
         # to the final path, so a partial transfer cannot pass for
@@ -234,7 +234,7 @@ class CharReceiver:
             return {
                 "ack": "file_end",
                 "ok": False,
-                "err": "size mismatch",
+                "error": "size mismatch",
                 "written": f["written"],
                 "declared": f["size"],
             }
@@ -250,7 +250,7 @@ class CharReceiver:
                 os.rename(f["path"] + ".part", f["path"])
             except OSError as e:
                 self._current_file = None
-                return {"ack": "file_end", "ok": False, "err": str(e)}
+                return {"ack": "file_end", "ok": False, "error": str(e)}
         result = {
             "ack": "file_end",
             "ok": True,

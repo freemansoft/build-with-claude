@@ -31,7 +31,7 @@ layer:
 
 - **File-push commands are refused.** `char_begin`, `file`, `chunk`,
   `file_end`, and `char_end` always return
-  `{"ack":"<cmd>","ok":false,"err":"file push disabled on unauthenticated link"}`.
+  `{"ack":"<cmd>","ok":false,"error":"file push disabled on unauthenticated link"}`.
   Re-enabled when the link gains real authentication.
 - **`unpair` requires on-device confirmation.** The device shows a
   confirmation overlay and waits up to 30 s for a Y/N press from the
@@ -57,7 +57,7 @@ defenses above can be relaxed accordingly.
 | `name`                                                    | `{"cmd":"name","name":"..."}`  | Persist name, redraw identity band.                                                                                                                                                                                       |
 | `owner`                                                   | `{"cmd":"owner","name":"..."}` | Persist owner (from `name`, per upstream), redraw, ack `{"ack":"owner","ok":true}`. An empty name gets `ok:false` with `error` and keeps the stored owner. The Cardputer shows the owner; the Core2 deliberately doesn't. |
 | `unpair`                                                  | `{"cmd":"unpair"}`             | Show on-device confirmation overlay. See ack shapes below.                                                                                                                                                                |
-| `char_begin` / `file` / `chunk` / `file_end` / `char_end` | (per upstream spec)            | Refused on this build with `{"ack":"<cmd>","ok":false,"err":"file push disabled on unauthenticated link"}`.                                                                                                               |
+| `char_begin` / `file` / `chunk` / `file_end` / `char_end` | (per upstream spec)            | Refused on this build with `{"ack":"<cmd>","ok":false,"error":"file push disabled on unauthenticated link"}`.                                                                                                             |
 
 A message **without** a `cmd` field is a heartbeat. Recognized fields:
 
@@ -96,11 +96,11 @@ on-device confirmation. The host should expect _two_ acks per
 request:
 
 1. Immediate response on receipt:
-   `{"ack":"unpair","ok":false,"pending":true,"err":"awaiting on-device confirmation"}`
+   `{"ack":"unpair","ok":false,"pending":true,"error":"awaiting on-device confirmation"}`
 2. Resolution, sent up to 30 s later, exactly one of:
    - `{"ack":"unpair","ok":true,"confirmed":true}` — user pressed Y. The device wipes state and disconnects ~200 ms after this ack.
    - `{"ack":"unpair","ok":false,"cancelled":true}` — user pressed N. The connection stays up.
-   - `{"ack":"unpair","ok":false,"timed_out":true,"err":"no on-device confirmation"}` — 30 s elapsed with no press. The connection stays up; the host can re-issue if it still wants to unpair.
+   - `{"ack":"unpair","ok":false,"timed_out":true,"error":"no on-device confirmation"}` — 30 s elapsed with no press. The connection stays up; the host can re-issue if it still wants to unpair.
 
 If the device-side app exits via Q while a confirmation is pending,
 the resolution ack may not arrive — the link drops without one. The

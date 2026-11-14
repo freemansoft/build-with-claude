@@ -21,7 +21,6 @@ and remove it when it's fixed.
 
 | Area                 | Reference                                      | This repo                                                      |
 | -------------------- | ---------------------------------------------- | -------------------------------------------------------------- |
-| Error key in acks    | `error`                                        | `err`                                                          |
 | Refusing folder push | don't ack `char_begin` (Desktop times out)     | sends `ok:false` acks                                          |
 | Dead link            | no heartbeat for ~30 s → treat as disconnected | no heartbeat timeout found; relies on the BLE disconnect event |
 | `time`               | `{"time":[epoch, tz_offset]}`                  | recognized and ignored                                         |

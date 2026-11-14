@@ -109,7 +109,7 @@ class BuddyProtocol:
                     "ack": "unpair",
                     "ok": False,
                     "pending": True,
-                    "err": "awaiting on-device confirmation",
+                    "error": "awaiting on-device confirmation",
                 }
             )
             return
@@ -210,7 +210,7 @@ class BuddyProtocol:
                     "ack": "unpair",
                     "ok": False,
                     "timed_out": True,
-                    "err": "no on-device confirmation",
+                    "error": "no on-device confirmation",
                 }
             )
             return False
