@@ -316,25 +316,21 @@ def run():
             if approve:
                 if unpair_active:
                     proto.confirm_unpair()
-                elif not proto.send_permission("once"):
-                    ui.flash_toast(
-                        "Approve it in the Claude app"
-                        if ui.waiting_in_app()
-                        else "Nothing to approve",
-                        buddy_ui.GRAY_DIM,
-                    )
-                last_toast_ms = time.ticks_ms()
+                    last_toast_ms = time.ticks_ms()
+                elif proto.send_permission("once"):
+                    last_toast_ms = time.ticks_ms()
+                # Otherwise there's nothing to answer here (the strip is
+                # blank or says to approve in the app): the press only
+                # wakes the screen.
             elif deny:
                 if unpair_active:
                     proto.cancel_unpair()
-                elif not proto.send_permission("deny"):
-                    ui.flash_toast(
-                        "Deny it in the Claude app"
-                        if ui.waiting_in_app()
-                        else "Nothing to deny",
-                        buddy_ui.GRAY_DIM,
-                    )
-                last_toast_ms = time.ticks_ms()
+                    last_toast_ms = time.ticks_ms()
+                elif proto.send_permission("deny"):
+                    last_toast_ms = time.ticks_ms()
+                # Otherwise there's nothing to answer here (the strip is
+                # blank or says to approve in the app): the press only
+                # wakes the screen.
             elif quit_:
                 return
             elif c_tap:
