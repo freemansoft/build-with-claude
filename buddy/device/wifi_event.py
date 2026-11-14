@@ -102,6 +102,7 @@ def is_connected():
     currently reports an active link."""
     try:
         import network
+
         return network.WLAN(network.STA_IF).isconnected()
     except Exception:
         return False

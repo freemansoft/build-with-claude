@@ -45,7 +45,11 @@ def _nearest(rgb, palette):
     r, g, b = rgb
     best, best_d = 0, None
     for i, v in enumerate(palette):
-        d = (r - (v >> 16 & 255)) ** 2 + (g - (v >> 8 & 255)) ** 2 + (b - (v & 255)) ** 2
+        d = (
+            (r - (v >> 16 & 255)) ** 2
+            + (g - (v >> 8 & 255)) ** 2
+            + (b - (v & 255)) ** 2
+        )
         if best_d is None or d < best_d:
             best, best_d = i, d
     return best
@@ -54,7 +58,9 @@ def _nearest(rgb, palette):
 def _encode(path: Path, size: int, palette) -> bytes:
     img = Image.open(path).convert("RGBA")
     if img.size != (size, size):
-        raise SystemExit("{}: expected {}x{}, got {}x{}".format(path.name, size, size, *img.size))
+        raise SystemExit(
+            "{}: expected {}x{}, got {}x{}".format(path.name, size, size, *img.size)
+        )
     px = img.load()
     out = bytearray()
     for y in range(size):
@@ -76,10 +82,19 @@ def _encode(path: Path, size: int, palette) -> bytes:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--art", type=Path, default=_DEFAULT_ART, help="pet art folder with manifest.json")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "--art",
+        type=Path,
+        default=_DEFAULT_ART,
+        help="pet art folder with manifest.json",
+    )
     ap.add_argument("--dest", type=Path, default=_DEFAULT_DEST)
-    ap.add_argument("--scale", type=int, default=3, help="on-device pixel scale (32 px x 3 = 96 px)")
+    ap.add_argument(
+        "--scale", type=int, default=3, help="on-device pixel scale (32 px x 3 = 96 px)"
+    )
     args = ap.parse_args()
 
     manifest = json.loads((args.art / "manifest.json").read_text())
@@ -105,9 +120,13 @@ def main() -> int:
     lines = [
         '"""Generated pet animation — do NOT edit by hand.',
         "",
-        "Pet: {}  ({}x{} px, drawn at {}x)".format(manifest.get("name", "?"), size, size, args.scale),
+        "Pet: {}  ({}x{} px, drawn at {}x)".format(
+            manifest.get("name", "?"), size, size, args.scale
+        ),
         "Frames: {}  Run data: {} bytes".format(len(frames), total),
-        "Source: {}".format(args.art.relative_to(_ROOT) if args.art.is_relative_to(_ROOT) else args.art),
+        "Source: {}".format(
+            args.art.relative_to(_ROOT) if args.art.is_relative_to(_ROOT) else args.art
+        ),
         "Regenerate with `python3 scripts/gen_pet_frames.py`.",
         '"""',
         "",
@@ -125,7 +144,11 @@ def main() -> int:
     lines.append("}")
     lines.append("")
     args.dest.write_text("\n".join(lines))
-    sys.stderr.write("wrote {} ({} frames, {} bytes of run data)\n".format(args.dest, len(frames), total))
+    sys.stderr.write(
+        "wrote {} ({} frames, {} bytes of run data)\n".format(
+            args.dest, len(frames), total
+        )
+    )
     return 0
 
 

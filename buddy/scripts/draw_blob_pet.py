@@ -106,8 +106,11 @@ def body(f, top, bottom, left=4, right=27, r_top=8, r_bot=4):
         x1 = right - int(round(inset))
         for x in range(x0, x1 + 1):
             inside.add((x, y))
-    for (x, y) in inside:
-        edge = any((x + dx, y + dy) not in inside for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+    for x, y in inside:
+        edge = any(
+            (x + dx, y + dy) not in inside
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))
+        )
         if edge:
             c = "E"
         elif y >= bottom - 2 or (x + 2, y) not in inside:
@@ -237,7 +240,9 @@ def heart(f, x, y, big=True):
 # ---- frames ----------------------------------------------------------------
 
 
-def make(top, eye_kind, mouth_kind, spark, cheek=True, bottom=None, feet_y=None, **extra):
+def make(
+    top, eye_kind, mouth_kind, spark, cheek=True, bottom=None, feet_y=None, **extra
+):
     f = Frame()
     bottom = top + 15 if bottom is None else bottom
     feet(f, bottom + 1 if feet_y is None else feet_y)
@@ -271,7 +276,36 @@ def frames():
         make(T, "left", "smile", "small"),
         make(T, "right", "smile", "small"),
     ]
-    idle_seq = [0, 0, 1, 1, 0, 0, 1, 1, 0, 2, 0, 0, 1, 1, 0, 3, 3, 3, 0, 4, 4, 4, 0, 1, 1, 0, 2, 0]
+    idle_seq = [
+        0,
+        0,
+        1,
+        1,
+        0,
+        0,
+        1,
+        1,
+        0,
+        2,
+        0,
+        0,
+        1,
+        1,
+        0,
+        3,
+        3,
+        3,
+        0,
+        4,
+        4,
+        4,
+        0,
+        1,
+        1,
+        0,
+        2,
+        0,
+    ]
 
     sleep = [
         make(T + 2, "sleep", "small", "off", bottom=27, feet_y=28, z=((22, 6, False),)),
@@ -306,7 +340,15 @@ def frames():
     # Petted / quick approval: happy eyes, grin, hearts floating up.
     hearts = [
         make(T, "happy", "grin", "small", hearts=((24, 8, False),)),
-        make(T - 1, "happy", "grin", "big", bottom=27, feet_y=28, hearts=((24, 4, True), (4, 8, False))),
+        make(
+            T - 1,
+            "happy",
+            "grin",
+            "big",
+            bottom=27,
+            feet_y=28,
+            hearts=((24, 4, True), (4, 8, False)),
+        ),
         make(T, "happy", "grin", "small", hearts=((25, 0, True), (3, 4, True))),
     ]
     hearts_seq = [0, 1, 2]
@@ -360,16 +402,26 @@ def main() -> int:
     cell = SIZE * scale
     rows = list(states)
     cols = max(len(s["frames"]) for s in states.values())
-    sheet = Image.new("RGB", (pad + cols * (cell + pad), pad + len(rows) * (cell + pad)), (0, 0, 0))
+    sheet = Image.new(
+        "RGB", (pad + cols * (cell + pad), pad + len(rows) * (cell + pad)), (0, 0, 0)
+    )
     draw = ImageDraw.Draw(sheet)
     for state, i, img in all_imgs:
         r = rows.index(state)
         x = pad + i * (cell + pad)
         y = pad + r * (cell + pad)
-        sheet.paste(img.resize((cell, cell), Image.NEAREST), (x, y), img.resize((cell, cell), Image.NEAREST))
+        sheet.paste(
+            img.resize((cell, cell), Image.NEAREST),
+            (x, y),
+            img.resize((cell, cell), Image.NEAREST),
+        )
         draw.text((x + 4, y + 4), "{} {}".format(state, i), fill=(90, 90, 90))
     sheet.save(_OUT_DIR / "preview.png")
-    print("wrote {} frames + manifest.json + preview.png to {}".format(len(all_imgs), _OUT_DIR))
+    print(
+        "wrote {} frames + manifest.json + preview.png to {}".format(
+            len(all_imgs), _OUT_DIR
+        )
+    )
     return 0
 
 

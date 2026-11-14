@@ -61,10 +61,10 @@ _W = 240
 _H = 135
 
 _CELL = 10
-_GRID_W = 24        # 240 / 10
-_GRID_H = 11        # 110 / 10
+_GRID_W = 24  # 240 / 10
+_GRID_H = 11  # 110 / 10
 _PLAY_X = 0
-_PLAY_Y = 22        # just below the header hairline at y=20
+_PLAY_Y = 22  # just below the header hairline at y=20
 
 _SNAKE = _ORANGE
 _FOOD = _CREAM
@@ -238,8 +238,12 @@ def _play_round(kb):
         new_head = (snake[0][0] + direction[0], snake[0][1] + direction[1])
 
         # Wall collision.
-        if (new_head[0] < 0 or new_head[0] >= _GRID_W
-                or new_head[1] < 0 or new_head[1] >= _GRID_H):
+        if (
+            new_head[0] < 0
+            or new_head[0] >= _GRID_W
+            or new_head[1] < 0
+            or new_head[1] >= _GRID_H
+        ):
             return score, False
 
         # Self-collision: tail cell is about to vacate, so exempt

@@ -9,11 +9,11 @@ changes, mirror the change here and in `buddy_protocol.py`.
 
 Nordic UART Service, line-delimited UTF-8 JSON with `\n` terminators.
 
-| Role | Characteristic UUID | Flags |
-| ---- | ------------------- | ----- |
-| Service | `6e400001-b5a3-f393-e0a9-e50e24dcca9e` | — |
+| Role               | Characteristic UUID                    | Flags               |
+| ------------------ | -------------------------------------- | ------------------- |
+| Service            | `6e400001-b5a3-f393-e0a9-e50e24dcca9e` | —                   |
 | RX (host → device) | `6e400002-b5a3-f393-e0a9-e50e24dcca9e` | `WRITE`, `WRITE_NR` |
-| TX (device → host) | `6e400003-b5a3-f393-e0a9-e50e24dcca9e` | `READ`, `NOTIFY` |
+| TX (device → host) | `6e400003-b5a3-f393-e0a9-e50e24dcca9e` | `READ`, `NOTIFY`    |
 
 Advertising name: `Claude_<last 6 hex digits of BT MAC>`.
 
@@ -31,7 +31,7 @@ layer:
 
 - **File-push commands are refused.** `char_begin`, `file`, `chunk`,
   `file_end`, and `char_end` always return
-  `{"ack":"<cmd>","ok":false,"err":"file push disabled on unauthenticated link"}`.
+  `{"ack":"<cmd>","ok":false,"error":"file push disabled on unauthenticated link"}`.
   Re-enabled when the link gains real authentication.
 - **`unpair` requires on-device confirmation.** The device shows a
   confirmation overlay and waits up to 30 s for a Y/N press from the
@@ -51,13 +51,13 @@ defenses above can be relaxed accordingly.
 
 ## Inbound (host → device)
 
-| cmd | shape | behavior |
-| --- | ----- | -------- |
-| `status` | `{"cmd":"status"}` | Reply with a status ack line. |
-| `name`   | `{"cmd":"name","name":"..."}` | Persist name, redraw identity band. |
-| `owner`  | `{"cmd":"owner","owner":"..."}` | Persist owner, redraw. |
-| `unpair` | `{"cmd":"unpair"}` | Show on-device confirmation overlay. See ack shapes below. |
-| `char_begin` / `file` / `chunk` / `file_end` / `char_end` | (per upstream spec) | Refused on this build with `{"ack":"<cmd>","ok":false,"err":"file push disabled on unauthenticated link"}`. |
+| cmd                                                       | shape                          | behavior                                                                                                                                                                                                                  |
+| --------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `status`                                                  | `{"cmd":"status"}`             | Reply with a status ack line.                                                                                                                                                                                             |
+| `name`                                                    | `{"cmd":"name","name":"..."}`  | Persist name, redraw identity band.                                                                                                                                                                                       |
+| `owner`                                                   | `{"cmd":"owner","name":"..."}` | Persist owner (from `name`, per upstream), redraw, ack `{"ack":"owner","ok":true}`. An empty name gets `ok:false` with `error` and keeps the stored owner. The Cardputer shows the owner; the Core2 deliberately doesn't. |
+| `unpair`                                                  | `{"cmd":"unpair"}`             | Show on-device confirmation overlay. See ack shapes below.                                                                                                                                                                |
+| `char_begin` / `file` / `chunk` / `file_end` / `char_end` | (per upstream spec)            | Refused on this build with `{"ack":"<cmd>","ok":false,"error":"file push disabled on unauthenticated link"}`.                                                                                                             |
 
 A message **without** a `cmd` field is a heartbeat. Recognized fields:
 
@@ -83,25 +83,24 @@ the device updates its UI silently.
 
 ## Outbound (device → host)
 
-| Shape | When |
-| ----- | ---- |
-| `{"cmd":"hello","name":..,"owner":..,"version":...}` | Once, right after the connection state advances to "encrypted" (or its dummy equivalent on builds without encryption). |
-| `{"cmd":"permission","id":"<prompt id>","decision":"once" \| "deny"}` | On Y/N keypress while a permission prompt is pending. |
-| `{"ack":"status","name":..,"sec":<bool>,"bat":{...},"sys":{...},"stats":{...}}` | In response to `status`. `sec` reflects actual GATT encryption state; `false` on UIFlow 2.0. |
-| `{"ack":"<cmd>","ok":bool,...}` | Generic ack for name/owner/char_*. |
+| Shape                                                                                              | When                                                                                                                                                |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `{"cmd":"permission","id":"<prompt id>","decision":"once" \| "deny"}`                              | On Y/N keypress while a permission prompt is pending.                                                                                               |
+| `{"ack":"status","ok":true,"data":{"name":..,"sec":<bool>,"bat":{...},"sys":{...},"stats":{...}}}` | In response to `status`. `sec` reflects actual GATT encryption state; `false` on UIFlow 2.0. `bat` is omitted on the Cardputer (no battery reader). |
+| `{"ack":"<cmd>","ok":bool,...}`                                                                    | Generic ack for name/owner/char_*.                                                                                                                  |
 
 ### Unpair ack shapes
 
 `unpair` triggers a multi-step flow because the device requires
-on-device confirmation. The host should expect *two* acks per
+on-device confirmation. The host should expect _two_ acks per
 request:
 
 1. Immediate response on receipt:
-   `{"ack":"unpair","ok":false,"pending":true,"err":"awaiting on-device confirmation"}`
+   `{"ack":"unpair","ok":false,"pending":true,"error":"awaiting on-device confirmation"}`
 2. Resolution, sent up to 30 s later, exactly one of:
    - `{"ack":"unpair","ok":true,"confirmed":true}` — user pressed Y. The device wipes state and disconnects ~200 ms after this ack.
    - `{"ack":"unpair","ok":false,"cancelled":true}` — user pressed N. The connection stays up.
-   - `{"ack":"unpair","ok":false,"timed_out":true,"err":"no on-device confirmation"}` — 30 s elapsed with no press. The connection stays up; the host can re-issue if it still wants to unpair.
+   - `{"ack":"unpair","ok":false,"timed_out":true,"error":"no on-device confirmation"}` — 30 s elapsed with no press. The connection stays up; the host can re-issue if it still wants to unpair.
 
 If the device-side app exits via Q while a confirmation is pending,
 the resolution ack may not arrive — the link drops without one. The
@@ -116,14 +115,12 @@ sys:   {up, heap}             # seconds since boot, free heap bytes
 stats: {appr, deny, vel, nap, lvl}
 ```
 
-> The shared `buddy_protocol.py` sends these at the top level of the
-> ack. The [Hardware Buddy reference](https://github.com/anthropics/claude-desktop-buddy/blob/main/REFERENCE.md)
-> wraps them — `{"ack":"status","ok":true,"data":{...}}` — and defines
-> `vel` as median seconds-to-approve (0 = no data) and `bat.mA` as
-> negative while charging. The Core2 app sends the reference envelope
-> and `bat.mA` sign, with `vel` always 0 (not supported yet); the
-> Cardputer doesn't yet. See `buddy/README.md` → "Status reply differs from the Hardware
-> Buddy reference".
+> These go inside `data`, as in the
+> [Hardware Buddy reference](https://github.com/anthropics/claude-desktop-buddy/blob/main/REFERENCE.md).
+> `bat.mA` is negative while charging; `bat` is omitted on the Cardputer,
+> which has no battery reader yet. `vel` is always 0 (the reference's
+> median seconds-to-approve isn't tracked). See `buddy/README.md` →
+> "Status reply".
 
 ## Timing
 

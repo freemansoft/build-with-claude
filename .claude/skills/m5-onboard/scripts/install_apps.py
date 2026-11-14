@@ -88,7 +88,9 @@ def _get_to_repl(s, timeout: float = 15.0) -> None:
             raise RuntimeError(
                 "No MicroPython REPL prompt after {:.0f}s. Is another program "
                 "(serial monitor, capture window) holding the port?\nLast output:\n{}".format(
-                    timeout, out.decode("utf-8", "replace")))
+                    timeout, out.decode("utf-8", "replace")
+                )
+            )
         sys.stderr.write("waiting for the REPL prompt...\n")
         time.sleep(1.0)
 
@@ -253,10 +255,7 @@ def _upload_file(s, src_path: str, dest_path: str) -> None:
 
     # Open the destination once, then stream base64 chunks. Paste-mode
     # blocks share a globals namespace, so `fp` persists across them.
-    head = (
-        "import ubinascii\n"
-        'fp = open({!r}, "wb")\n'.format(dest_path)
-    )
+    head = 'import ubinascii\nfp = open({!r}, "wb")\n'.format(dest_path)
     _paste_or_raise(s, head, settle=0.2, what="open {}".format(dest_path))
 
     total = len(data)
@@ -349,7 +348,11 @@ def install(
     # logic only fires for root /flash/ targets — an apps/boot.py
     # wouldn't affect UIFlow's boot chain so there's nothing to back
     # up. This keeps the behavior unchanged for flat-layout bundles.
-    root_basenames = {os.path.basename(d) for (_, d) in plan if d.startswith("/flash/") and "/flash/apps/" not in d}
+    root_basenames = {
+        os.path.basename(d)
+        for (_, d) in plan
+        if d.startswith("/flash/") and "/flash/apps/" not in d
+    }
     need_apps_dir = any(d.startswith("/flash/apps/") for (_, d) in plan)
 
     s = mpy_repl.open_port(port)
@@ -394,14 +397,14 @@ def install(
         # launcher holistically.
         if owns_launcher and need_apps_dir:
             bundle_apps = sorted(
-                os.path.basename(d)
-                for (_, d) in plan
-                if d.startswith("/flash/apps/")
+                os.path.basename(d) for (_, d) in plan if d.startswith("/flash/apps/")
             )
             _sweep_stale_apps(s, bundle_apps)
 
         for src_path, dest_path in plan:
-            sys.stderr.write("uploading {} -> {}\n".format(os.path.basename(src_path), dest_path))
+            sys.stderr.write(
+                "uploading {} -> {}\n".format(os.path.basename(src_path), dest_path)
+            )
             _upload_file(s, src_path, dest_path)
 
         if reset_when_done:
@@ -446,6 +449,7 @@ def install(
 # the eventual error message points at where we'd have looked first
 # — typically the script-relative path, which is the most useful
 # breadcrumb for "I cloned the repo and the bundle is missing."
+
 
 def _candidate_buddy_dirs() -> list[str]:
     cands: list[str] = []
@@ -514,6 +518,7 @@ def main() -> int:
     # one needs the Cardputer keyboard. Explicit paths/names are kept.
     if args.src == "buddy":
         import identify
+
         ident = identify.identify(args.port)
         mapped = identify.bundle_for(args.src, ident["variant"])
         if mapped != args.src:

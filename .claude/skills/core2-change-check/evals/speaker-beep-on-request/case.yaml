@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: speaker-beep-on-request
+expected_outcome: |
+  The beep is added on the same trigger as the existing vibration (new request), with a deliberate, documented decision about battery use; the backlight and power-saving code are untouched; docs are updated; everything passes the repo's format and lint check.

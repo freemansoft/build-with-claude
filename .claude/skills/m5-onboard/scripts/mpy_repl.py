@@ -15,6 +15,7 @@ import time
 # Pull the vendored pyserial onto sys.path before the import below.
 # See scripts/vendor_path.py for the why.
 import vendor_path
+
 vendor_path.ensure_on_syspath()
 
 try:
@@ -27,7 +28,9 @@ except ImportError:
 REPL_BAUD = 115200
 
 
-def open_port(port: str, baud: int = REPL_BAUD, timeout: float = 1.0) -> "serial.Serial":
+def open_port(
+    port: str, baud: int = REPL_BAUD, timeout: float = 1.0
+) -> "serial.Serial":
     """Open the REPL port without pulsing the auto-reset circuit.
 
     pyserial asserts DTR and RTS on open by default. On UART-bridge

@@ -6,13 +6,13 @@ The repository ships exactly one third-party Python package, vendored under `onb
 
 ## Inventory
 
-| Package | Version | License | Source |
-|---|---|---|---|
-| pyserial | 3.5 | BSD-3-Clause | https://github.com/pyserial/pyserial |
+| Package  | Version | License      | Source                               |
+| -------- | ------- | ------------ | ------------------------------------ |
+| pyserial | 3.5     | BSD-3-Clause | https://github.com/pyserial/pyserial |
 
 BSD-3-Clause is permissive and Apache-2.0-compatible. There is no GPL code in this repository.
 
-## What's *not* vendored
+## What's _not_ vendored
 
 `esptool` (GPLv2+) is required at runtime by the flash stage but is **not** bundled with this repository. The skill's preflight installs it via `pip install esptool` on first run if it isn't already in the user's environment. Declared as a runtime dependency in [`requirements.txt`](requirements.txt). For a reproducible setup, run:
 

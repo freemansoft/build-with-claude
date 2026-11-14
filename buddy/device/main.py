@@ -39,7 +39,6 @@ import sys
 import time
 
 import M5
-import machine
 from hardware import MatrixKeyboard
 
 
@@ -140,6 +139,7 @@ def _init_ble():
     global _ble
     try:
         import bluetooth
+
         print("launcher: bringing up NimBLE")
         _ble = bluetooth.BLE()
         if not _ble.active():
@@ -188,8 +188,12 @@ def _connect_wifi_with_splash():
         # Defensive — wifi_event imports network at call time, and a
         # build without a working network module would explode here.
         # The launcher should still come up.
-        result = {"ok": False, "ssid": getattr(_wifi, "SSID", "?"),
-                  "err": "exception: {}".format(e), "elapsed_ms": 0}
+        result = {
+            "ok": False,
+            "ssid": getattr(_wifi, "SSID", "?"),
+            "err": "exception: {}".format(e),
+            "elapsed_ms": 0,
+        }
     _wifi_status = result
 
     _LCD.fillScreen(_BLACK)
@@ -236,9 +240,7 @@ def _discover_apps():
     filenames without forcing us to ship a separate metadata file.
     """
     try:
-        files = sorted(
-            f for f in os.listdir(_APPS_DIR) if f.endswith(".py")
-        )
+        files = sorted(f for f in os.listdir(_APPS_DIR) if f.endswith(".py"))
     except OSError as e:
         print("launcher: cannot list", _APPS_DIR, e)
         return []
@@ -260,12 +262,12 @@ def _discover_apps():
 # between them so the orange highlight on the selected menu row
 # doesn't touch the animation's bounding box.
 _MENU_X = 10
-_MENU_RIGHT = 150         # menu highlight ends here; animation starts beyond
-_MAX_VISIBLE = 5          # rows shown at once; drives scroll viewport
+_MENU_RIGHT = 150  # menu highlight ends here; animation starts beyond
+_MAX_VISIBLE = 5  # rows shown at once; drives scroll viewport
 _BURST_W = 72
 _BURST_H = 72
-_BURST_X = 160            # top-left x of burst bounding box
-_BURST_Y = 30             # top-left y (just below the header hairline at y=20)
+_BURST_X = 160  # top-left x of burst bounding box
+_BURST_Y = 30  # top-left y (just below the header hairline at y=20)
 _BURST_CX = _BURST_X + _BURST_W // 2
 _BURST_CY = _BURST_Y + _BURST_H // 2
 
@@ -322,8 +324,8 @@ def _draw_chrome(apps, cursor, scroll_top=0):
     y = 28
     row_h = 16
     hi_x = 4
-    hi_w = _MENU_RIGHT - hi_x        # highlight width, ends before burst
-    visible = apps[scroll_top:scroll_top + _MAX_VISIBLE]
+    hi_w = _MENU_RIGHT - hi_x  # highlight width, ends before burst
+    visible = apps[scroll_top : scroll_top + _MAX_VISIBLE]
     for i, (display, _mod) in enumerate(visible):
         abs_i = scroll_top + i
         if abs_i == cursor:

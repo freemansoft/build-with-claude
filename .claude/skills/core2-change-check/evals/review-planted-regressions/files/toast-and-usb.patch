@@ -1,0 +1,49 @@
+diff --git a/buddy/device-core2/apps/claude_buddy.py b/buddy/device-core2/apps/claude_buddy.py
+index b4bdf6f..cd988b0 100644
+--- a/buddy/device-core2/apps/claude_buddy.py
++++ b/buddy/device-core2/apps/claude_buddy.py
+@@ -100,7 +100,8 @@ def _battery():
+             "pct": int(M5.Power.getBatteryLevel()),
+             "mV": int(M5.Power.getBatteryVoltage()),
+             "mA": -ma,  # reference convention: negative = charging
+-            "usb": ma > _ON_BATTERY_MA,
++            # Simpler and more direct than inferring it from the current.
++            "usb": M5.Power.getVBUSVoltage() > 4500,
+         }
+     except Exception as e:
+         print("claude_buddy: battery read failed:", e)
+@@ -344,7 +345,7 @@ def run():
+             if approve:
+                 if unpair_active:
+                     proto.confirm_unpair()
+-                elif not proto.send_permission("once"):
++                elif not proto.send_permission("approve"):
+                     ui.flash_toast(
+                         "Approve it in the Claude app"
+                         if ui.waiting_in_app()
+diff --git a/buddy/device-core2/buddy_ui_core2.py b/buddy/device-core2/buddy_ui_core2.py
+index ed17684..b86545d 100644
+--- a/buddy/device-core2/buddy_ui_core2.py
++++ b/buddy/device-core2/buddy_ui_core2.py
+@@ -330,16 +330,18 @@ class BuddyUI:
+             self._draw_footer(stats, battery)
+ 
+     def flash_decision(self, decision: str):
+-        if decision == "once" and self._prompt_quick:
++        if decision == "approve" and self._prompt_quick:
+             # Hearts once the request box clears and the pet is back.
+             self._pet.play_once("heart", _PET_ONCE_MS)
+         self._prompt_quick = False
+-        color = GREEN if decision == "once" else RED
+-        label = "APPROVED" if decision == "once" else "DENIED"
++        color = GREEN if decision == "approve" else RED
++        label = "APPROVED" if decision == "approve" else "DENIED"
+         self.flash_toast(label, color)
+ 
+     def flash_toast(self, text: str, color: int = CYAN):
+         """Overwrite the hint strip with a one-line coloured status."""
++        # Make sure the toast is readable even if the screen was dimmed.
++        _LCD.setBrightness(_BRIGHT_FULL)
+         _font("DejaVu18")
+         _LCD.fillRect(0, _STRIP_Y, _W, _H - _STRIP_Y, color)
+         _LCD.setTextColor(WHITE, color)
