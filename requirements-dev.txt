@@ -1,0 +1,7 @@
+# Lint / format tools (prettier runs via npx, pinned in
+# .claude/skills/format-and-lint/scripts/format_and_lint.py).
+#   python3 -m pip install -r requirements-dev.txt
+ruff>=0.17,<0.18
+# Syntax check for device code. Pinned to the MicroPython version in
+# UIFlow 2.0 so newer-only syntax is caught.
+mpy-cross==1.22.0.post1
