@@ -172,15 +172,14 @@ on tool calls, which other (auto-approved) sessions also send.
 ## Status reply
 
 Claude Desktop polls `{"cmd":"status"}` every couple of seconds for the
-Hardware Buddy window's stats panel. The Core2 app answers in the shape
-the [Hardware Buddy reference](https://github.com/anthropics/claude-desktop-buddy/blob/main/REFERENCE.md)
+Hardware Buddy window's stats panel. The shared `buddy_protocol.py`
+answers in the shape the
+[Hardware Buddy reference](https://github.com/anthropics/claude-desktop-buddy/blob/main/REFERENCE.md)
 specifies — `{"ack":"status","ok":true,"data":{name, sec, bat, sys, stats}}`
-— with `bat.mA` negative while charging. Velocity isn't supported for
-now: `stats.vel` is always 0 ("no data" in the reference), so Desktop
-shows `--s`. It does this with a small `_Protocol` subclass in
-`apps/claude_buddy.py`; the shared `buddy_protocol.py` (and so the
-Cardputer bundle) still sends the older shape — see `../README.md` for
-the gap and the planned fix.
+— with the Core2's real battery readings and `bat.mA` negative while
+charging. Velocity isn't supported for now: `stats.vel` is always 0 ("no
+data" in the reference), so Desktop shows `--s`. See `../README.md`
+("Status reply") for the remaining differences.
 
 The owner from Desktop's `{"cmd":"owner","name":"Felix"}` is stored
 (shared `buddy_protocol.py`), but the Core2 deliberately doesn't show

@@ -83,11 +83,11 @@ the device updates its UI silently.
 
 ## Outbound (device → host)
 
-| Shape                                                                           | When                                                                                         |
-| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `{"cmd":"permission","id":"<prompt id>","decision":"once" \| "deny"}`           | On Y/N keypress while a permission prompt is pending.                                        |
-| `{"ack":"status","name":..,"sec":<bool>,"bat":{...},"sys":{...},"stats":{...}}` | In response to `status`. `sec` reflects actual GATT encryption state; `false` on UIFlow 2.0. |
-| `{"ack":"<cmd>","ok":bool,...}`                                                 | Generic ack for name/owner/char_*.                                                           |
+| Shape                                                                                              | When                                                                                                                                                |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `{"cmd":"permission","id":"<prompt id>","decision":"once" \| "deny"}`                              | On Y/N keypress while a permission prompt is pending.                                                                                               |
+| `{"ack":"status","ok":true,"data":{"name":..,"sec":<bool>,"bat":{...},"sys":{...},"stats":{...}}}` | In response to `status`. `sec` reflects actual GATT encryption state; `false` on UIFlow 2.0. `bat` is omitted on the Cardputer (no battery reader). |
+| `{"ack":"<cmd>","ok":bool,...}`                                                                    | Generic ack for name/owner/char_*.                                                                                                                  |
 
 ### Unpair ack shapes
 
@@ -115,14 +115,12 @@ sys:   {up, heap}             # seconds since boot, free heap bytes
 stats: {appr, deny, vel, nap, lvl}
 ```
 
-> The shared `buddy_protocol.py` sends these at the top level of the
-> ack. The [Hardware Buddy reference](https://github.com/anthropics/claude-desktop-buddy/blob/main/REFERENCE.md)
-> wraps them — `{"ack":"status","ok":true,"data":{...}}` — and defines
-> `vel` as median seconds-to-approve (0 = no data) and `bat.mA` as
-> negative while charging. The Core2 app sends the reference envelope
-> and `bat.mA` sign, with `vel` always 0 (not supported yet); the
-> Cardputer doesn't yet. See `buddy/README.md` → "Status reply differs from the Hardware
-> Buddy reference".
+> These go inside `data`, as in the
+> [Hardware Buddy reference](https://github.com/anthropics/claude-desktop-buddy/blob/main/REFERENCE.md).
+> `bat.mA` is negative while charging; `bat` is omitted on the Cardputer,
+> which has no battery reader yet. `vel` is always 0 (the reference's
+> median seconds-to-approve isn't tracked). See `buddy/README.md` →
+> "Status reply".
 
 ## Timing
 

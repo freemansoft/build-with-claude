@@ -22,8 +22,8 @@ the `format-and-lint` skill.
 - The shared modules it symlinks from `buddy/device/`: `buddy_ble.py`,
   `buddy_protocol.py`, `buddy_state.py`, `buddy_chars.py`,
   `burst_frames.py`. A change there also ships to the Cardputer bundle.
-  Put Core2-only behavior in the Core2 side instead, for example the
-  `_Protocol` subclass in `buddy/device-core2/apps/claude_buddy.py`.
+  Put Core2-only behavior in the Core2 files instead
+  (`buddy/device-core2/apps/claude_buddy.py`, `buddy_ui_core2.py`).
 - Docs that describe this behavior: `buddy/device-core2/power.md`,
   `buddy/device-core2/README.md`, `buddy/references/protocol.md`.
 
@@ -91,16 +91,16 @@ For each message the change sends or handles, compare against the
 matching REFERENCE.md section. Use exact key names, value types and
 envelope shapes:
 
-| Area                        | Where in this repo                      | Watch for                                                                                                        |
-| --------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Transport, advertising name | `buddy_ble.py`                          | NUS UUIDs, `Claude` name prefix, `\n`-delimited JSON, reassembly across packets                                  |
-| Heartbeat                   | `buddy_protocol.py` `_on_heartbeat`     | field names (`total`, `running`, `waiting`, `msg`, `entries`, `tokens`, `tokens_today`, `prompt.{id,tool,hint}`) |
-| Turn events                 | `on_line` (`evt`)                       | dropped above 4 KB upstream, so never rely on them for state                                                     |
-| Permission reply            | `send_permission`                       | `{"cmd":"permission","id":<prompt.id exactly>,"decision":"once"\|"deny"}`                                        |
-| One-shot on connect         | `on_line`                               | `{"time":[epoch, tz_offset]}`, `{"cmd":"owner","name":...}`                                                      |
-| Command acks                | `on_line`, `buddy_chars.py`             | every `cmd` gets `{"ack":<cmd>,"ok":...}`; the reference names the error key `error`                             |
-| Status reply                | `_build_status_ack` + Core2 `_Protocol` | `{"ack":"status","ok":true,"data":{name,sec,bat,sys,stats}}`, `bat.mA` negative = charging                       |
-| Folder push, pairing        | `buddy_chars.py`, `buddy_ble.py`        | 1.8 MB cap, reject `..` and absolute paths, `sec`, `unpair`                                                      |
+| Area                        | Where in this repo                  | Watch for                                                                                                        |
+| --------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Transport, advertising name | `buddy_ble.py`                      | NUS UUIDs, `Claude` name prefix, `\n`-delimited JSON, reassembly across packets                                  |
+| Heartbeat                   | `buddy_protocol.py` `_on_heartbeat` | field names (`total`, `running`, `waiting`, `msg`, `entries`, `tokens`, `tokens_today`, `prompt.{id,tool,hint}`) |
+| Turn events                 | `on_line` (`evt`)                   | dropped above 4 KB upstream, so never rely on them for state                                                     |
+| Permission reply            | `send_permission`                   | `{"cmd":"permission","id":<prompt.id exactly>,"decision":"once"\|"deny"}`                                        |
+| One-shot on connect         | `on_line`                           | `{"time":[epoch, tz_offset]}`, `{"cmd":"owner","name":...}`                                                      |
+| Command acks                | `on_line`, `buddy_chars.py`         | every `cmd` gets `{"ack":<cmd>,"ok":...}`; the reference names the error key `error`                             |
+| Status reply                | `_build_status_ack`                 | `{"ack":"status","ok":true,"data":{name,sec,bat,sys,stats}}`, `bat.mA` negative = charging                       |
+| Folder push, pairing        | `buddy_chars.py`, `buddy_ble.py`    | 1.8 MB cap, reject `..` and absolute paths, `sec`, `unpair`                                                      |
 
 Some deviations are deliberate, for example security limits on
 UIFlow's unauthenticated BLE. They're listed in

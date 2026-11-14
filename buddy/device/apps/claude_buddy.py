@@ -267,7 +267,9 @@ def run():
         ui=ui,
         chars=chars,
         ble=ble,
-        battery_reader=_stub_battery,
+        # No battery reader on the Cardputer yet: the status reply
+        # leaves "bat" out rather than report the stub's fake values.
+        battery_reader=None,
     )
     proto_holder["p"] = proto
 

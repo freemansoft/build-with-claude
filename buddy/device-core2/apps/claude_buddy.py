@@ -164,29 +164,6 @@ def _tool_from_evt(raw):
     return (str(found.get("name") or "?"), summary, found.get("id"))
 
 
-class _Protocol(buddy_protocol.BuddyProtocol):
-    """Shared protocol with the status ack shaped per the Hardware Buddy
-    reference (anthropics/claude-desktop-buddy REFERENCE.md):
-    ``{"ack":"status","ok":true,"data":{name, sec, bat, sys, stats}}``.
-    The shared module sends those fields at the top level.
-
-    ``stats.vel`` is reported as 0 ("no data" in the reference; Desktop
-    shows "--s"). The reference defines it as median seconds-to-approve;
-    the shared module's approvals-per-minute value doesn't match that,
-    and velocity isn't supported on the Core2 for now.
-
-    Overriding here keeps the Cardputer bundle unchanged until it can be
-    tested; see buddy/device-core2/README.md "Status reply"."""
-
-    def _build_status_ack(self):
-        flat = super()._build_status_ack()
-        flat.pop("ack", None)
-        stats = dict(flat.get("stats") or {})
-        stats["vel"] = 0
-        flat["stats"] = stats
-        return {"ack": "status", "ok": True, "data": flat}
-
-
 def _drain_buttons(ms=400):
     """Swallow the press that launched us (and any bounce) so it
     doesn't count as an approve/deny."""
@@ -284,7 +261,7 @@ def run():
         on_state=on_state_change,
     )
 
-    proto = _Protocol(
+    proto = buddy_protocol.BuddyProtocol(
         state=state,
         ui=ui,
         chars=chars,

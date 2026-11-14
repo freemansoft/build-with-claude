@@ -16,7 +16,7 @@ Host → device messages (what we receive):
         "prompt":{"id":"...","tool":"...","hint":"..."}}
 
 Device → host messages (what we emit):
-    {"ack":"status","name":..,"sec":true,"bat":{...},"sys":{...},"stats":{...}}
+    {"ack":"status","ok":true,"data":{"name":..,"sec":..,"bat":{...},"sys":{...},"stats":{...}}}
     {"ack":"<other>","ok":true}
     {"cmd":"permission","id":"<prompt id>","decision":"once"|"deny"}
 
@@ -29,8 +29,6 @@ unknown message is logged and ignored rather than crashing.
 import json
 import time
 
-
-FIRMWARE_VERSION = "m5buddy-0.1"
 
 _HEARTBEAT_FIELDS = ("total", "running", "waiting", "tokens", "tokens_today", "entries")
 
@@ -241,23 +239,29 @@ class BuddyProtocol:
         self._send({"ack": "unpair", "ok": False, "cancelled": True})
 
     def _build_status_ack(self) -> dict:
+        """Status reply in REFERENCE.md's shape:
+        ``{"ack":"status","ok":true,"data":{name, sec, bat, sys, stats}}``.
+
+        ``stats.vel`` is the reference's median seconds-to-approve, which
+        isn't tracked, so it's 0 ("no data"; Desktop shows "--s").
+        ``nap`` / ``lvl`` keep this repo's meanings for now (they feed
+        pet features). ``bat`` is left out when the device has no
+        battery reader, since the reference lets you omit fields you
+        don't have.
+        """
         import gc
 
         uptime_s = time.ticks_diff(time.ticks_ms(), self._boot_ms) // 1000
-        bat = self._battery()
-        ack = {
-            "ack": "status",
+        stats = dict(self.state.stats())
+        stats["vel"] = 0
+        data = {
             "name": self.state.name,
-            "owner": self.state.owner,
             # sec reflects whether the underlying link is encrypted+paired.
             # True on builds with pairing API; False on stock UIFlow 2.0.
             "sec": bool(getattr(self.ble, "encrypted", False)),
-            "bat": bat,
-            "sys": {
-                "up": uptime_s,
-                "heap": gc.mem_free(),
-            },
-            "stats": self.state.stats(),
-            "version": FIRMWARE_VERSION,
         }
-        return ack
+        if self._battery is not None:
+            data["bat"] = self._battery()
+        data["sys"] = {"up": uptime_s, "heap": gc.mem_free()}
+        data["stats"] = stats
+        return {"ack": "status", "ok": True, "data": data}
