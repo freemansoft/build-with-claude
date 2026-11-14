@@ -19,6 +19,7 @@ import sys
 # anything. No-op if the vendor directory is missing (falls back to
 # system packages + pip-install prompt in onboard.py).
 import vendor_path
+
 vendor_path.ensure_on_syspath()
 
 try:
@@ -58,6 +59,7 @@ def find_esptool() -> str:
     # until you tick the "add Python to PATH" installer option.
     import glob
     import os
+
     candidates: list[str] = []
     # macOS framework build
     candidates += glob.glob(os.path.expanduser("~/Library/Python/*/bin/esptool"))
@@ -87,12 +89,18 @@ def find_esptool() -> str:
         # Also check Microsoft Store Python (lives under WindowsApps).
         localappdata = os.environ.get("LOCALAPPDATA")
         if localappdata:
-            candidates += glob.glob(os.path.join(
-                localappdata,
-                "Packages", "PythonSoftwareFoundation.Python.*",
-                "LocalCache", "local-packages", "Python*", "Scripts",
-                "esptool.exe",
-            ))
+            candidates += glob.glob(
+                os.path.join(
+                    localappdata,
+                    "Packages",
+                    "PythonSoftwareFoundation.Python.*",
+                    "LocalCache",
+                    "local-packages",
+                    "Python*",
+                    "Scripts",
+                    "esptool.exe",
+                )
+            )
     for c in candidates:
         # os.access(..., X_OK) is unreliable on Windows; treat existence
         # of an .exe/.py as sufficient there.

@@ -10,7 +10,6 @@ references/hardware_signatures.md.
 from __future__ import annotations
 
 import argparse
-import time
 
 import mpy_repl
 

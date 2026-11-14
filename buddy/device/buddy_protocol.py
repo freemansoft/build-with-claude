@@ -8,7 +8,7 @@ the BLE transport stays dumb.
 Host → device messages (what we receive):
     {"cmd":"status"}                             - ask us to ack state
     {"cmd":"name", "name":"..."}                 - rename the buddy
-    {"cmd":"owner", "owner":"..."}               - set owner string
+    {"cmd":"owner", "name":"..."}                - set owner string
     {"cmd":"unpair"}                             - wipe pairing + state
     {"cmd":"char_begin"|"file"|"chunk"|...}      - folder push
     heartbeat, no "cmd": {"total":N, "running":N, "waiting":N,
@@ -16,10 +16,9 @@ Host → device messages (what we receive):
         "prompt":{"id":"...","tool":"...","hint":"..."}}
 
 Device → host messages (what we emit):
-    {"ack":"status","name":..,"sec":true,"bat":{...},"sys":{...},"stats":{...}}
+    {"ack":"status","ok":true,"data":{"name":..,"sec":..,"bat":{...},"sys":{...},"stats":{...}}}
     {"ack":"<other>","ok":true}
     {"cmd":"permission","id":"<prompt id>","decision":"once"|"deny"}
-    {"cmd":"hello","name":..,"version":...}
 
 Heartbeat detection: we key on absence of "cmd"/"ack" and presence of
 one of the heartbeat-shape fields. That way we don't need the desktop
@@ -30,8 +29,6 @@ unknown message is logged and ignored rather than crashing.
 import json
 import time
 
-
-FIRMWARE_VERSION = "m5buddy-0.1"
 
 _HEARTBEAT_FIELDS = ("total", "running", "waiting", "tokens", "tokens_today", "entries")
 
@@ -86,9 +83,17 @@ class BuddyProtocol:
             self._send({"ack": "name", "ok": bool(new), "name": self.state.name})
             return
         if cmd == "owner":
-            self.state.set_owner(msg.get("owner", "").strip())
+            # REFERENCE.md: {"cmd":"owner","name":"Felix"} -- the owner's
+            # name is in "name". Refuse an empty one rather than wiping
+            # the stored owner.
+            owner = msg.get("name")
+            owner = owner.strip() if isinstance(owner, str) else ""
+            if not owner:
+                self._send({"ack": "owner", "ok": False, "error": "missing name"})
+                return
+            self.state.set_owner(owner)
             self.ui.update_identity(self.state.name, self.state.owner)
-            self._send({"ack": "owner", "ok": True, "owner": self.state.owner})
+            self._send({"ack": "owner", "ok": True})
             return
         if cmd == "unpair":
             # Defer the actual wipe until the user confirms on the
@@ -97,12 +102,14 @@ class BuddyProtocol:
             # — the user just sees the prompt persist.
             self._unpair_pending_ms = time.ticks_ms() or 1  # avoid 0
             self.ui.show_unpair_prompt()
-            self._send({
-                "ack": "unpair",
-                "ok": False,
-                "pending": True,
-                "err": "awaiting on-device confirmation",
-            })
+            self._send(
+                {
+                    "ack": "unpair",
+                    "ok": False,
+                    "pending": True,
+                    "error": "awaiting on-device confirmation",
+                }
+            )
             return
         if cmd in ("char_begin", "file", "chunk", "file_end", "char_end"):
             ack = self.chars.handle(msg)
@@ -153,21 +160,6 @@ class BuddyProtocol:
 
     # ----- outbound
 
-    def send_hello(self) -> None:
-        """Called once on BLE encryption-established to announce ourselves.
-
-        The desktop identifies us by the pairing address, but this
-        gives it our friendly name + firmware version up front so the
-        UI can render before the first status round-trip.
-        """
-        ok = self._send({
-            "cmd": "hello",
-            "name": self.state.name,
-            "owner": self.state.owner,
-            "version": FIRMWARE_VERSION,
-        })
-        print("buddy_protocol: send_hello ok=", ok)
-
     def _send(self, obj: dict) -> bool:
         line = json.dumps(obj, separators=(",", ":")).encode("utf-8")
         return self.ble.send_line(line)
@@ -211,12 +203,14 @@ class BuddyProtocol:
             self.ui.clear_unpair_prompt()
             # Best-effort ack; if the host is already gone the send
             # just no-ops. Timeout is a normal outcome, not an error.
-            self._send({
-                "ack": "unpair",
-                "ok": False,
-                "timed_out": True,
-                "err": "no on-device confirmation",
-            })
+            self._send(
+                {
+                    "ack": "unpair",
+                    "ok": False,
+                    "timed_out": True,
+                    "error": "no on-device confirmation",
+                }
+            )
             return False
         return True
 
@@ -245,23 +239,29 @@ class BuddyProtocol:
         self._send({"ack": "unpair", "ok": False, "cancelled": True})
 
     def _build_status_ack(self) -> dict:
+        """Status reply in REFERENCE.md's shape:
+        ``{"ack":"status","ok":true,"data":{name, sec, bat, sys, stats}}``.
+
+        ``stats.vel`` is the reference's median seconds-to-approve, which
+        isn't tracked, so it's 0 ("no data"; Desktop shows "--s").
+        ``nap`` / ``lvl`` keep this repo's meanings for now (they feed
+        pet features). ``bat`` is left out when the device has no
+        battery reader, since the reference lets you omit fields you
+        don't have.
+        """
         import gc
 
         uptime_s = time.ticks_diff(time.ticks_ms(), self._boot_ms) // 1000
-        bat = self._battery()
-        ack = {
-            "ack": "status",
+        stats = dict(self.state.stats())
+        stats["vel"] = 0
+        data = {
             "name": self.state.name,
-            "owner": self.state.owner,
             # sec reflects whether the underlying link is encrypted+paired.
             # True on builds with pairing API; False on stock UIFlow 2.0.
             "sec": bool(getattr(self.ble, "encrypted", False)),
-            "bat": bat,
-            "sys": {
-                "up": uptime_s,
-                "heap": gc.mem_free(),
-            },
-            "stats": self.state.stats(),
-            "version": FIRMWARE_VERSION,
         }
-        return ack
+        if self._battery is not None:
+            data["bat"] = self._battery()
+        data["sys"] = {"up": uptime_s, "heap": gc.mem_free()}
+        data["stats"] = stats
+        return {"ack": "status", "ok": True, "data": data}

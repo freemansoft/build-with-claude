@@ -78,8 +78,11 @@ From the device REPL:
 
 ```python
 import os
-os.remove('/flash/main.py')
-import machine; machine.reset()
+
+os.remove("/flash/main.py")
+import machine
+
+machine.reset()
 ```
 
 To also drop the apps under `/flash/apps/`, walk that directory the

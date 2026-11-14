@@ -36,6 +36,7 @@ from pathlib import Path
 # vendor dir isn't present (e.g. someone pruned it), this is a
 # no-op and the preflight below falls back to pip.
 import vendor_path
+
 vendor_path.ensure_on_syspath()
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -195,16 +196,12 @@ class Heartbeat:
             elapsed = int(time.monotonic() - self._start)
             quip = self._next_quip()
             if quip:
-                sys.stderr.write(
-                    f"  [heartbeat {self.stage} {elapsed}s] {quip}\n"
-                )
+                sys.stderr.write(f"  [heartbeat {self.stage} {elapsed}s] {quip}\n")
             else:
                 # Stages without a matching pool (future additions, custom
                 # callers) keep the old plain-text format so monitoring
                 # filters that only look for "[heartbeat" still match.
-                sys.stderr.write(
-                    f"  [heartbeat] {self.stage} — {elapsed}s elapsed\n"
-                )
+                sys.stderr.write(f"  [heartbeat] {self.stage} — {elapsed}s elapsed\n")
             sys.stderr.flush()
 
     def __enter__(self) -> "Heartbeat":
@@ -237,6 +234,7 @@ def _is_native_usb(port: str) -> bool:
     """
     try:
         from serial.tools import list_ports
+
         for p in list_ports.comports():
             if p.device == port and p.vid == 0x303A:
                 return True
@@ -245,7 +243,6 @@ def _is_native_usb(port: str) -> bool:
     # Fallback for macOS/Linux if list_ports is unavailable
     name = os.path.basename(port)
     return "usbmodem" in name or name.startswith("ttyACM")
-
 
 
 def _port_exists(port: str) -> bool:
@@ -257,6 +254,7 @@ def _port_exists(port: str) -> bool:
     """
     try:
         from serial.tools import list_ports
+
         return any(p.device == port for p in list_ports.comports())
     except Exception:
         return os.path.exists(port)
@@ -276,6 +274,7 @@ def _port_in_download_mode(port: str) -> bool:
     """
     try:
         from serial.tools import list_ports
+
         for p in list_ports.comports():
             if p.device == port:
                 return (p.vid or 0) == 0x303A and (p.pid or 0) == 0x1001
@@ -316,6 +315,7 @@ def _espressif_ports() -> set[str]:
     """
     try:
         from serial.tools import list_ports
+
         return {p.device for p in list_ports.comports() if p.vid == 0x303A}
     except Exception:
         # Fallback: glob POSIX device nodes if pyserial isn't available.
@@ -431,9 +431,7 @@ def _wait_for_download_port(
         parts = []
         for p in _lp.comports():
             if p.vid == 0x303A:
-                parts.append(
-                    f"{p.device}@{hex(p.pid)}({(p.product or '').strip()})"
-                )
+                parts.append(f"{p.device}@{hex(p.pid)}({(p.product or '').strip()})")
         return ", ".join(parts) or "<no Espressif ports>"
 
     # Fast-path: if the device is ALREADY in download mode when we
@@ -705,6 +703,7 @@ def _check_port_access(port: str) -> None:
     grp_name = "dialout"
     try:
         import grp
+
         gid = os.stat(port).st_gid
         grp_name = grp.getgrgid(gid).gr_name
     except Exception:
@@ -789,9 +788,7 @@ def _preflight() -> None:
         install_spec.append("esptool>={}.{}".format(*_MIN_ESPTOOL))
     elif not esp_ok:
         missing.append(
-            "esptool {} (need >= {}.{})".format(
-                _esptool_version_str(), *_MIN_ESPTOOL
-            )
+            "esptool {} (need >= {}.{})".format(_esptool_version_str(), *_MIN_ESPTOOL)
         )
         install_spec.append("esptool>={}.{}".format(*_MIN_ESPTOOL))
 
@@ -883,9 +880,7 @@ def _preflight() -> None:
             )
         )
         sys.exit(2)
-    sys.stderr.write(
-        "Deps installed: esptool {}.\n".format(_esptool_version_str())
-    )
+    sys.stderr.write("Deps installed: esptool {}.\n".format(_esptool_version_str()))
 
     # pip wrote new files into site-packages / user scripts dir. Clear
     # the import system's finder cache so the re-check picks them up
@@ -972,10 +967,14 @@ def main() -> int:
         "--variant",
         default=None,
         choices=[
-            "basic-16mb", "basic-4mb", "fire",
-            "core2", "tough",
+            "basic-16mb",
+            "basic-4mb",
+            "fire",
+            "core2",
+            "tough",
             "cores3",
-            "cardputer", "cardputer-adv",
+            "cardputer",
+            "cardputer-adv",
         ],
         help=(
             "Firmware variant. If omitted: native-USB boards default to "
@@ -1021,7 +1020,7 @@ def main() -> int:
             # even a failed probe leaves the device mid-reboot. We know the
             # chip is ESP32-S3 from the port type; variant was given by the
             # user. If --skip-flash we just want the REPL, so skip probe too.
-            sys.stderr.write(f"Native USB port — skipping esptool probe.\n")
+            sys.stderr.write("Native USB port — skipping esptool probe.\n")
             info = {"chip": "ESP32-S3 (native USB)", "mac": "?", "flash_size": "?"}
         else:
             try:
@@ -1061,7 +1060,9 @@ def main() -> int:
                     "It's on a USB-UART bridge, so it isn't a Cardputer or "
                     "Cardputer-Adv (those use native USB).\n"
                     "Re-run with --variant, e.g. --variant core2, basic-16mb, "
-                    "fire or tough.\n".format(port, ident["machine"] or "no REPL answer")
+                    "fire or tough.\n".format(
+                        port, ident["machine"] or "no REPL answer"
+                    )
                 )
                 return 2
 
@@ -1142,8 +1143,14 @@ def main() -> int:
             # (``no_reset``, ``watchdog_reset``); esptool 5.x accepts
             # both. Use the underscore form so we work on either.
             with Heartbeat("FLASH (write)"):
-                flash.write(port, image, "0x0",
-                            before="no_reset", after="watchdog_reset", native=True)
+                flash.write(
+                    port,
+                    image,
+                    "0x0",
+                    before="no_reset",
+                    after="watchdog_reset",
+                    native=True,
+                )
         else:
             with Heartbeat("FLASH (erase+write)"):
                 flash.erase(port)

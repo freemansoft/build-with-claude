@@ -36,6 +36,7 @@ import subprocess
 import sys
 
 import vendor_path
+
 vendor_path.ensure_on_syspath()
 
 from detect import find_esptool
@@ -76,8 +77,7 @@ def _run_esptool(args, **kwargs):
 
 def erase(port: str, before: str = "default_reset") -> None:
     _run_esptool(
-        ["--port", port, "--baud", str(FLASH_BAUD),
-         "--before", before, "erase_flash"],
+        ["--port", port, "--baud", str(FLASH_BAUD), "--before", before, "erase_flash"],
         timeout=180,
     )
 
@@ -101,28 +101,40 @@ def native_reset(port: str) -> bool:
     RESET on the device manually.
     """
     cmd = _esptool_cmd() + [
-        "--port", port,
-        "--baud", str(NATIVE_BAUD),
-        "--before", "no_reset",
-        "--after", "watchdog_reset",
+        "--port",
+        port,
+        "--baud",
+        str(NATIVE_BAUD),
+        "--before",
+        "no_reset",
+        "--after",
+        "watchdog_reset",
         "--no-stub",
         "flash_id",
     ]
     env = vendor_path.subprocess_env() if vendor_path.is_available() else None
     try:
-        subprocess.run(cmd, timeout=30, check=True,
-                       stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL,
-                       env=env)
+        subprocess.run(
+            cmd,
+            timeout=30,
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=env,
+        )
         return True
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
         return False
 
 
-def write(port: str, image: str, offset: str = "0x0",
-          before: str = "default_reset",
-          after: str = "hard_reset",
-          native: bool = False) -> None:
+def write(
+    port: str,
+    image: str,
+    offset: str = "0x0",
+    before: str = "default_reset",
+    after: str = "hard_reset",
+    native: bool = False,
+) -> None:
     """Write ``image`` to ``port`` starting at ``offset``.
 
     Native-USB quirk: esptool's post-flash reset step (``--after
@@ -145,10 +157,14 @@ def write(port: str, image: str, offset: str = "0x0",
     """
     baud = NATIVE_BAUD if native else FLASH_BAUD
     cmd = _esptool_cmd() + [
-        "--port", port,
-        "--baud", str(baud),
-        "--before", before,
-        "--after", after,
+        "--port",
+        port,
+        "--baud",
+        str(baud),
+        "--before",
+        before,
+        "--after",
+        after,
     ]
     if native:
         # Skip the RAM stub — see module docstring. --no-stub is a
@@ -186,10 +202,7 @@ def write(port: str, image: str, offset: str = "0x0",
     # invalidates the flash. Accept exit codes 1 and 2 after hash
     # verification since esptool uses both for different reset-path
     # failures.
-    hash_verified = (
-        "Hash of data verified" in out
-        or "Hash of data matches" in out
-    )
+    hash_verified = "Hash of data verified" in out or "Hash of data matches" in out
     reset_step_died = (
         "The chip stopped responding" in out
         or "StopIteration" in out

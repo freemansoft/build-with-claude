@@ -324,9 +324,15 @@ class BuddyBLE:
     def _irq(self, event, data):
         if _DEBUG_IRQ:
             try:
-                print("buddy_ble: irq", event, None if data is None else tuple(
-                    bytes(x).hex() if isinstance(x, memoryview) else x
-                    for x in data))
+                print(
+                    "buddy_ble: irq",
+                    event,
+                    None
+                    if data is None
+                    else tuple(
+                        bytes(x).hex() if isinstance(x, memoryview) else x for x in data
+                    ),
+                )
             except Exception as e:  # never let logging break the IRQ
                 print("buddy_ble: irq", event, "(unprintable)", e)
         if self._shutting_down:
@@ -406,7 +412,12 @@ class BuddyBLE:
             if handle == self._rx_h:
                 chunk = self._ble.gatts_read(self._rx_h)
                 if _DEBUG_IRQ:
-                    print("buddy_ble: rx chunk", len(chunk), "tail", bytes(chunk[-3:]).hex())
+                    print(
+                        "buddy_ble: rx chunk",
+                        len(chunk),
+                        "tail",
+                        bytes(chunk[-3:]).hex(),
+                    )
                 self._rx_buf += chunk
                 # Split on newline, hand each completed line upstream.
                 # Partial trailing data stays in the buffer.
@@ -418,7 +429,7 @@ class BuddyBLE:
                     # MicroPython bytearray doesn't support `del buf[:n]`,
                     # so we rebuild with a slice copy. Same cost in
                     # practice since JSON lines are short and rare.
-                    self._rx_buf = bytearray(self._rx_buf[nl + 1:])
+                    self._rx_buf = bytearray(self._rx_buf[nl + 1 :])
                     if _DEBUG_IRQ:
                         print("buddy_ble: rx line", len(line), line[:160])
                     try:
@@ -550,7 +561,11 @@ class BuddyBLE:
             except OSError as e:
                 print("buddy_ble: adv shape", label, "err:", e)
                 last_err = e
-        raise last_err if last_err is not None else OSError("advertise failed with no OSError")
+        raise (
+            last_err
+            if last_err is not None
+            else OSError("advertise failed with no OSError")
+        )
 
     def send_line(self, payload: bytes) -> bool:
         """Push one JSON line to the host. Returns False if no link.

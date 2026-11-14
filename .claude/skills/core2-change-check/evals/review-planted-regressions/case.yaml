@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: review-planted-regressions
+expected_outcome: |
+  The review rejects or requests changes, flagging all three planted problems: a direct setBrightness call that bypasses the battery backlight rules, USB detection switched to VBUS (which reads ~5 V on battery while the 5 V output is on), and a permission decision of "approve" where the protocol requires "once".
+context:
+  scaffold_script: place-files.sh
