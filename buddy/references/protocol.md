@@ -9,11 +9,11 @@ changes, mirror the change here and in `buddy_protocol.py`.
 
 Nordic UART Service, line-delimited UTF-8 JSON with `\n` terminators.
 
-| Role | Characteristic UUID | Flags |
-| ---- | ------------------- | ----- |
-| Service | `6e400001-b5a3-f393-e0a9-e50e24dcca9e` | — |
+| Role               | Characteristic UUID                    | Flags               |
+| ------------------ | -------------------------------------- | ------------------- |
+| Service            | `6e400001-b5a3-f393-e0a9-e50e24dcca9e` | —                   |
 | RX (host → device) | `6e400002-b5a3-f393-e0a9-e50e24dcca9e` | `WRITE`, `WRITE_NR` |
-| TX (device → host) | `6e400003-b5a3-f393-e0a9-e50e24dcca9e` | `READ`, `NOTIFY` |
+| TX (device → host) | `6e400003-b5a3-f393-e0a9-e50e24dcca9e` | `READ`, `NOTIFY`    |
 
 Advertising name: `Claude_<last 6 hex digits of BT MAC>`.
 
@@ -51,13 +51,13 @@ defenses above can be relaxed accordingly.
 
 ## Inbound (host → device)
 
-| cmd | shape | behavior |
-| --- | ----- | -------- |
-| `status` | `{"cmd":"status"}` | Reply with a status ack line. |
-| `name`   | `{"cmd":"name","name":"..."}` | Persist name, redraw identity band. |
-| `owner`  | `{"cmd":"owner","owner":"..."}` | Persist owner, redraw. |
-| `unpair` | `{"cmd":"unpair"}` | Show on-device confirmation overlay. See ack shapes below. |
-| `char_begin` / `file` / `chunk` / `file_end` / `char_end` | (per upstream spec) | Refused on this build with `{"ack":"<cmd>","ok":false,"err":"file push disabled on unauthenticated link"}`. |
+| cmd                                                       | shape                           | behavior                                                                                                    |
+| --------------------------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `status`                                                  | `{"cmd":"status"}`              | Reply with a status ack line.                                                                               |
+| `name`                                                    | `{"cmd":"name","name":"..."}`   | Persist name, redraw identity band.                                                                         |
+| `owner`                                                   | `{"cmd":"owner","owner":"..."}` | Persist owner, redraw.                                                                                      |
+| `unpair`                                                  | `{"cmd":"unpair"}`              | Show on-device confirmation overlay. See ack shapes below.                                                  |
+| `char_begin` / `file` / `chunk` / `file_end` / `char_end` | (per upstream spec)             | Refused on this build with `{"ack":"<cmd>","ok":false,"err":"file push disabled on unauthenticated link"}`. |
 
 A message **without** a `cmd` field is a heartbeat. Recognized fields:
 
@@ -83,17 +83,17 @@ the device updates its UI silently.
 
 ## Outbound (device → host)
 
-| Shape | When |
-| ----- | ---- |
-| `{"cmd":"hello","name":..,"owner":..,"version":...}` | Once, right after the connection state advances to "encrypted" (or its dummy equivalent on builds without encryption). |
-| `{"cmd":"permission","id":"<prompt id>","decision":"once" \| "deny"}` | On Y/N keypress while a permission prompt is pending. |
-| `{"ack":"status","name":..,"sec":<bool>,"bat":{...},"sys":{...},"stats":{...}}` | In response to `status`. `sec` reflects actual GATT encryption state; `false` on UIFlow 2.0. |
-| `{"ack":"<cmd>","ok":bool,...}` | Generic ack for name/owner/char_*. |
+| Shape                                                                           | When                                                                                                                   |
+| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `{"cmd":"hello","name":..,"owner":..,"version":...}`                            | Once, right after the connection state advances to "encrypted" (or its dummy equivalent on builds without encryption). |
+| `{"cmd":"permission","id":"<prompt id>","decision":"once" \| "deny"}`           | On Y/N keypress while a permission prompt is pending.                                                                  |
+| `{"ack":"status","name":..,"sec":<bool>,"bat":{...},"sys":{...},"stats":{...}}` | In response to `status`. `sec` reflects actual GATT encryption state; `false` on UIFlow 2.0.                           |
+| `{"ack":"<cmd>","ok":bool,...}`                                                 | Generic ack for name/owner/char_*.                                                                                     |
 
 ### Unpair ack shapes
 
 `unpair` triggers a multi-step flow because the device requires
-on-device confirmation. The host should expect *two* acks per
+on-device confirmation. The host should expect _two_ acks per
 request:
 
 1. Immediate response on receipt:

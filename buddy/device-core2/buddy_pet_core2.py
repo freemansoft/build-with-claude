@@ -45,9 +45,9 @@ class Pet:
         self.size = _art.SIZE * self.scale if _art else 0
         self._canvases = {}
         self._base = "idle"
-        self._once = None        # one-shot state playing now
+        self._once = None  # one-shot state playing now
         self._once_until = 0
-        self._queued = None      # (state, ms) to play when next shown
+        self._queued = None  # (state, ms) to play when next shown
         self._pos = 0
         self._next_ms = time.ticks_ms()
         self._shown = None
@@ -129,6 +129,8 @@ class Pet:
             data = _art.FRAMES[idx]
             pal = _art.PALETTE
             for i in range(0, len(data), 4):
-                c.fillRect(data[i + 1] * s, data[i] * s, data[i + 2] * s, s, pal[data[i + 3]])
+                c.fillRect(
+                    data[i + 1] * s, data[i] * s, data[i + 2] * s, s, pal[data[i + 3]]
+                )
             self._canvases[idx] = c
         return c

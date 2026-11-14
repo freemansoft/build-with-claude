@@ -102,9 +102,10 @@ These are things the scripts already handle correctly but which you should not o
   4. **Release BtnG0.** The screen should now be fully dark — that's how you know the device is in download mode.
 
   If the device reboots back into UIFlow instead, BtnG0 was released too early — the coaching retries and tells the user to hold it longer. Do NOT try to automate this with `esptool --before default_reset` or pyserial's DTR/RTS; both are no-ops on native USB (the pins aren't wired to EN), and adding them just hides the real prompt. Keep the SKILL.md steps above and the runtime prompt in `onboard.py:_wait_for_download_port` in sync — they're the same four steps in two places.
+
 - **Do not unplug the device during FLASH.** Especially on native USB. A mid-flash disconnect leaves the internal flash in an inconsistent state. Mask ROM is usually reachable afterwards (press BtnG0 alone on the back, or do the full BtnG0+BtnRST dance), so the recovery is just to re-run `m5-onboard go` — it's idempotent and will re-enter download mode, re-flash, re-push apps. Don't panic and don't start opening the case; the mask ROM is in silicon and survives a corrupted flash as long as the USB PHY is intact.
 - **Baud rate is 460800 on UART bridges, 115200 with `--no-stub` on native USB.** Not 921600 on either. The CH9102 bridge loses sync on `erase_flash` at 921600 (not theoretical — it fails). Native USB's stub-baud-bump path produces "Lost connection" mid-flash; 115200 no-stub is counterintuitively faster end-to-end because it never fails.
-- **NVS writes must use `set_str`, not `set_blob`** *(relevant to `install_apps.py`'s `boot_option` setter).* UIFlow's startup calls `nvs.get_str()` and ESP-IDF tags blob and string entries separately. A blob-tagged key returns `ESP_ERR_NVS_NOT_FOUND` to `get_str`, and the device boot-loops. If a prior attempt wrote a blob, call `nvs.erase_key(name)` before `set_str`.
+- **NVS writes must use `set_str`, not `set_blob`** _(relevant to `install_apps.py`'s `boot_option` setter)._ UIFlow's startup calls `nvs.get_str()` and ESP-IDF tags blob and string entries separately. A blob-tagged key returns `ESP_ERR_NVS_NOT_FOUND` to `get_str`, and the device boot-loops. If a prior attempt wrote a blob, call `nvs.erase_key(name)` before `set_str`.
 - **REPL multi-line blocks need paste mode.** Sending `try:`/`except:` line-by-line makes the REPL accumulate indentation forever. Use Ctrl-E to enter paste mode, send the block, Ctrl-D to execute. `mpy_repl.py` wraps this.
 - **Hard reset is DTR=False, RTS=True, 100ms, RTS=False — but only on UART-bridge devices.** On native-USB ESP32-S3 boards the DTR/RTS lines aren't wired to EN/GPIO0, so that pulse is a silent no-op. Use `mpy_repl.repl_reset()` (sends `machine.reset()` through the REPL) for post-install reboots on those devices — `install_apps.py` already does this. If you bypass `install_apps.py` and stitch your own flow, don't reach for DTR/RTS on a usbmodem port and expect a reboot; files will be on disk but the old code will still be running. That regression bit us once.
 - **The idle heap-debug loop is normal.** UIFlow 2.0 prints asyncio diagnostics while waiting at the pairing screen. Don't interpret it as a hang.
@@ -142,17 +143,17 @@ Once `m5-onboard go` finishes at the `DONE` banner, the device is ready to use o
 
 `onboard.py` runs a preflight check at startup: if `esptool` (or, in the rare prune-vendor case, `pyserial`) is missing, it lists what's needed and asks the user whether to install now. On `Y` (or Enter) it runs `python -m pip install --user <missing>` in the current interpreter, then verifies. Inside a venv the `--user` flag is dropped so the install lands in the venv's site-packages. Non-interactive callers (piped stdin) get a manual-install hint instead of a prompt.
 
-Python itself has to exist before this skill can do anything — you can't bootstrap an interpreter from inside one. Same story for `git` (needed once, to clone the skill and bundle repos). Claude's responsible for detecting both and installing whatever's missing *before* running any `scripts/*.py` invocation. Detection is just running `python3 --version` / `python --version` and `git --version` — if either fails, Claude fetches them with the host's native package manager before anything else.
+Python itself has to exist before this skill can do anything — you can't bootstrap an interpreter from inside one. Same story for `git` (needed once, to clone the skill and bundle repos). Claude's responsible for detecting both and installing whatever's missing _before_ running any `scripts/*.py` invocation. Detection is just running `python3 --version` / `python --version` and `git --version` — if either fails, Claude fetches them with the host's native package manager before anything else.
 
 **Per-OS dependency bootstrap (Claude's responsibility if missing):**
 
-*Git:*
+_Git:_
 
 - **Windows** — `winget install -e --id Git.Git --silent --accept-source-agreements --accept-package-agreements`. Adds `git.exe` to PATH; may need a new shell for it to be visible.
 - **macOS** — `/usr/bin/git` ships with Xcode Command Line Tools; `git --version` on a fresh macOS triggers the tools installer automatically. If you want to avoid the GUI prompt, install via `xcode-select --install` (still opens a dialog) or `brew install git`.
 - **Linux** — `sudo apt-get install -y git` / `sudo dnf install -y git` / `sudo pacman -S --noconfirm git`.
 
-*Python:*
+_Python:_
 
 - **Windows** — `winget install -e --id Python.Python.3.13 --silent --accept-source-agreements --accept-package-agreements`. Takes ~30 seconds, no UI, gets PATH right. If the current shell can't see `python` afterwards, tell the user to close and reopen the terminal (Windows updates PATH only on new shells).
 - **macOS** — Python 3 is usually pre-installed as `/usr/bin/python3` on any current macOS (shipped by Apple). If for some reason it isn't, `brew install python@3.13` via Homebrew is the go-to; if Homebrew itself is missing, offer to install it via `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"` (but only if the user confirms — Homebrew is a larger commitment than winget).
@@ -202,4 +203,5 @@ The skill runs on macOS, Linux, and Windows. Non-obvious bits:
   4. `~/Desktop/m5stack/buddy/device`.
 
   Most installs hit (2). Set `M5_BUDDY_DIR` only for the unusual case of pointing at a bundle outside this clone: `export M5_BUDDY_DIR=/path/to/buddy/device` (Unix) or `$env:M5_BUDDY_DIR="C:\path\to\buddy\device"` (PowerShell).
+
 - **Firmware cache.** Downloaded firmware lands at `~/.cache/m5-onboard/` (or `$XDG_CACHE_HOME/m5-onboard/`), created at mode 0700 if missing. Cache files are MD5-verified at write time and re-verified on hit. Clearing the cache is safe; the next run re-downloads.

@@ -31,13 +31,13 @@ in a shape that predates the
 [Hardware Buddy reference](https://github.com/anthropics/claude-desktop-buddy/blob/main/REFERENCE.md),
 so the panel shows less than it could:
 
-| | Reference | This bundle (Cardputer) |
-|---|---|---|
-| Envelope | `{"ack":"status","ok":true,"data":{...}}` | fields at the top level, no `ok` / `data` |
+|             | Reference                                                              | This bundle (Cardputer)                               |
+| ----------- | ---------------------------------------------------------------------- | ----------------------------------------------------- |
+| Envelope    | `{"ack":"status","ok":true,"data":{...}}`                              | fields at the top level, no `ok` / `data`             |
 | `stats.vel` | median **seconds to approve**, last 8 approvals, integer (0 = no data) | approvals **per minute**, float — Desktop shows `--s` |
-| `bat.mA` | negative = charging | always 0 (no battery reader yet) |
-| `stats.nap` | cumulative seconds napping | count of idle periods |
-| `stats.lvl` | from output tokens (50K per level) | from approve + deny count |
+| `bat.mA`    | negative = charging                                                    | always 0 (no battery reader yet)                      |
+| `stats.nap` | cumulative seconds napping                                             | count of idle periods                                 |
+| `stats.lvl` | from output tokens (50K per level)                                     | from approve + deny count                             |
 
 The Core2 bundle already sends the reference envelope and `bat.mA`
 sign, and reports `vel` as 0 (velocity not supported yet) — see the

@@ -6,14 +6,14 @@ touch buttons under the screen). Port of the Cardputer-Adv bundle in
 
 ## What's shared and what isn't
 
-| File | Source |
-|------|--------|
+| File                                                                                       | Source                                                                                |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
 | `buddy_ble.py`, `buddy_protocol.py`, `buddy_state.py`, `buddy_chars.py`, `burst_frames.py` | symlinks to `../device/` — same BLE stack, wire protocol, NVS state and sprite frames |
-| `buddy_ui_core2.py` | Core2 view (320x240, DejaVu18/24/56, vibration on new prompts) |
-| `buddy_pet_core2.py` | plays the pet animation (see [Pet](#pet)) |
-| `pet_frames.py` | the pet's frames — generated from `pet_art/`, don't edit by hand |
-| `apps/claude_buddy.py` | Core2 app loop: touch buttons, real AXP192 battery readings |
-| `main.py` | Core2 launcher (no WiFi, no keyboard) |
+| `buddy_ui_core2.py`                                                                        | Core2 view (320x240, DejaVu18/24/56, vibration on new prompts)                        |
+| `buddy_pet_core2.py`                                                                       | plays the pet animation (see [Pet](#pet))                                             |
+| `pet_frames.py`                                                                            | the pet's frames — generated from `pet_art/`, don't edit by hand                      |
+| `apps/claude_buddy.py`                                                                     | Core2 app loop: touch buttons, real AXP192 battery readings                           |
+| `main.py`                                                                                  | Core2 launcher (no WiFi, no keyboard)                                                 |
 
 The Cardputer's `hello_cardputer.py` and `snake.py` aren't included —
 they need the Cardputer keyboard.
@@ -66,14 +66,14 @@ When nothing is waiting for approval, an animated pixel pet — the
 **blob**, a round Claude-orange critter with an antenna spark — sits in
 the request area:
 
-| State | When |
-|-------|------|
-| idle | linked, no session running: bobs, blinks, looks around |
-| busy | one or more sessions running: focused, spark flashing, sweating |
-| sleep | no session running for 60 s, or napping (below): eyes closed, Z's drifting up |
-| dizzy | you shook the Core2: X eyes, wobbling, stars (~2 s) |
-| heart | you touched the pet, or approved a request on the device within 5 s of it arriving: hearts float up (~2 s) |
-| attention | a request box is up: a smaller (64 px) pet with wide eyes and a "!" hops beside the request text |
+| State     | When                                                                                                       |
+| --------- | ---------------------------------------------------------------------------------------------------------- |
+| idle      | linked, no session running: bobs, blinks, looks around                                                     |
+| busy      | one or more sessions running: focused, spark flashing, sweating                                            |
+| sleep     | no session running for 60 s, or napping (below): eyes closed, Z's drifting up                              |
+| dizzy     | you shook the Core2: X eyes, wobbling, stars (~2 s)                                                        |
+| heart     | you touched the pet, or approved a request on the device within 5 s of it arriving: hearts float up (~2 s) |
+| attention | a request box is up: a smaller (64 px) pet with wide eyes and a "!" hops beside the request text           |
 
 **Nap:** lay the Core2 face-down for about a second and the pet sleeps
 with the backlight dimmed (see [power.md](power.md#backlight)); pick it up and it
@@ -130,11 +130,11 @@ detected, the backlight rules and the measurements.
 
 ## Buttons
 
-| | BtnA (left) | BtnB (middle) | BtnC (right) |
-|-|-------------|---------------|--------------|
-| Launcher | up | open | down |
-| Claude Buddy | approve once | deny | hold ~1 s to exit |
-| Unpair request | confirm | cancel | — |
+|                | BtnA (left)  | BtnB (middle) | BtnC (right)      |
+| -------------- | ------------ | ------------- | ----------------- |
+| Launcher       | up           | open          | down              |
+| Claude Buddy   | approve once | deny          | hold ~1 s to exit |
+| Unpair request | confirm      | cancel        | —                 |
 
 ## Connecting
 
@@ -200,8 +200,14 @@ the log contains tool-call text from your Claude session.
 From the device REPL:
 
 ```python
-import esp32; n = esp32.NVS('uiflow'); n.set_u8('boot_option', 1); n.commit()
-import machine; machine.reset()
+import esp32
+
+n = esp32.NVS("uiflow")
+n.set_u8("boot_option", 1)
+n.commit()
+import machine
+
+machine.reset()
 ```
 
 ## Possible future phases
@@ -219,7 +225,7 @@ Ideas that have been scoped but not started. Nothing here is built yet.
 
 ### Custom character packs (animated GIFs)
 
-Claude Desktop's Hardware Buddy window can push a *character pack* to
+Claude Desktop's Hardware Buddy window can push a _character pack_ to
 the device: drag a folder onto its drop target and it's streamed over
 BLE (`char_begin` / `file` / `chunk` / `file_end` / `char_end`, each
 chunk acknowledged). Supporting that on the Core2 would let any
@@ -227,12 +233,12 @@ standard pack replace the blob.
 
 **Pack format vs. this repo's pet art** — they don't match today:
 
-| | `pet_art/blob/` (this repo) | Desktop character pack |
-|---|---|---|
-| Images | one 32x32 PNG per frame, drawn at 3x on the device | one animated GIF per state, 96 px wide (height up to ~140), frames and timing inside the GIF |
+|                 | `pet_art/blob/` (this repo)                                      | Desktop character pack                                                                                   |
+| --------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Images          | one 32x32 PNG per frame, drawn at 3x on the device               | one animated GIF per state, 96 px wide (height up to ~140), frames and timing inside the GIF             |
 | `manifest.json` | `name`, `size`, `palette`; per state `frame_ms`, `frames`, `seq` | `name`, `colors` (`body`, `bg`, `text`, `textDim`, `ink`); per state a GIF or a list of GIFs that rotate |
-| States | idle, sleep, busy, attention, dizzy, heart | the same plus `celebrate` |
-| Size limit | — | whole folder under 1.8 MB |
+| States          | idle, sleep, busy, attention, dizzy, heart                       | the same plus `celebrate`                                                                                |
+| Size limit      | —                                                                | whole folder under 1.8 MB                                                                                |
 
 **Steps, smallest first:**
 
@@ -258,7 +264,7 @@ standard pack replace the blob.
 5. **Then accept packs from Desktop over BLE:** turn on the receiver
    in the shared `buddy_chars.py` (switched off today because UIFlow's
    BLE build can't pair, so the link is unauthenticated) behind an
-   on-device prompt — "Receive character pack *name* (size)? A: accept /
+   on-device prompt — "Receive character pack _name_ (size)? A: accept /
    B: decline" — keeping its 1.8 MB cap and its rule that files land
    only under `/flash/buddy/chars/<name>/` and are never run as code.
    Plus a way to delete a pack and go back to the blob.

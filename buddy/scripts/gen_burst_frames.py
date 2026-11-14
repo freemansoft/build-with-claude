@@ -126,7 +126,7 @@ def main() -> int:
         "Source: {}".format(args.src.name),
         "Canonical size: {}x{}  ({} frames)".format(_OUT, _OUT, n_frames),
         "Encoded runs: {} bytes total".format(total_run_bytes),
-        'Regenerate with `python3 scripts/gen_burst_frames.py`.',
+        "Regenerate with `python3 scripts/gen_burst_frames.py`.",
         '"""',
         "",
         "WIDTH = {}".format(_OUT),

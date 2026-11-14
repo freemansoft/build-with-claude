@@ -97,12 +97,14 @@ class BuddyProtocol:
             # — the user just sees the prompt persist.
             self._unpair_pending_ms = time.ticks_ms() or 1  # avoid 0
             self.ui.show_unpair_prompt()
-            self._send({
-                "ack": "unpair",
-                "ok": False,
-                "pending": True,
-                "err": "awaiting on-device confirmation",
-            })
+            self._send(
+                {
+                    "ack": "unpair",
+                    "ok": False,
+                    "pending": True,
+                    "err": "awaiting on-device confirmation",
+                }
+            )
             return
         if cmd in ("char_begin", "file", "chunk", "file_end", "char_end"):
             ack = self.chars.handle(msg)
@@ -160,12 +162,14 @@ class BuddyProtocol:
         gives it our friendly name + firmware version up front so the
         UI can render before the first status round-trip.
         """
-        ok = self._send({
-            "cmd": "hello",
-            "name": self.state.name,
-            "owner": self.state.owner,
-            "version": FIRMWARE_VERSION,
-        })
+        ok = self._send(
+            {
+                "cmd": "hello",
+                "name": self.state.name,
+                "owner": self.state.owner,
+                "version": FIRMWARE_VERSION,
+            }
+        )
         print("buddy_protocol: send_hello ok=", ok)
 
     def _send(self, obj: dict) -> bool:
@@ -211,12 +215,14 @@ class BuddyProtocol:
             self.ui.clear_unpair_prompt()
             # Best-effort ack; if the host is already gone the send
             # just no-ops. Timeout is a normal outcome, not an error.
-            self._send({
-                "ack": "unpair",
-                "ok": False,
-                "timed_out": True,
-                "err": "no on-device confirmation",
-            })
+            self._send(
+                {
+                    "ack": "unpair",
+                    "ok": False,
+                    "timed_out": True,
+                    "err": "no on-device confirmation",
+                }
+            )
             return False
         return True
 

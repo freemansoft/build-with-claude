@@ -66,6 +66,7 @@ _RX_LINE_MAX = 400
 
 def _rx_log_enabled():
     import os
+
     try:
         os.stat(_RX_LOG)
         return True
@@ -75,6 +76,7 @@ def _rx_log_enabled():
 
 def _rx_log_flush(lines):
     import os
+
     try:
         try:
             if os.stat(_RX_LOG)[6] > _RX_LOG_MAX:
@@ -120,7 +122,15 @@ def _set_power(ui, on_battery):
     print("claude_buddy: power ->", "battery" if on_battery else "usb")
 
 
-_TOOL_SUMMARY_KEYS =("command", "file_path", "path", "pattern", "url", "query", "description")
+_TOOL_SUMMARY_KEYS = (
+    "command",
+    "file_path",
+    "path",
+    "pattern",
+    "url",
+    "query",
+    "description",
+)
 
 
 def _tool_from_evt(raw):
@@ -128,6 +138,7 @@ def _tool_from_evt(raw):
     Desktop ``evt`` line, or None. Called from the BLE callback, so it
     only parses and returns plain data — no LCD work here."""
     import json
+
     try:
         msg = json.loads(bytes(raw).decode("utf-8"))
     except Exception:
@@ -197,6 +208,7 @@ def run():
     # the Cardputer app).
     try:
         import network
+
         sta = network.WLAN(network.STA_IF)
         if sta.active():
             try:
@@ -334,7 +346,8 @@ def run():
                     proto.confirm_unpair()
                 elif not proto.send_permission("once"):
                     ui.flash_toast(
-                        "Approve it in the Claude app" if ui.waiting_in_app()
+                        "Approve it in the Claude app"
+                        if ui.waiting_in_app()
                         else "Nothing to approve",
                         buddy_ui.GRAY_DIM,
                     )
@@ -344,7 +357,8 @@ def run():
                     proto.cancel_unpair()
                 elif not proto.send_permission("deny"):
                     ui.flash_toast(
-                        "Deny it in the Claude app" if ui.waiting_in_app()
+                        "Deny it in the Claude app"
+                        if ui.waiting_in_app()
                         else "Nothing to deny",
                         buddy_ui.GRAY_DIM,
                     )
@@ -359,7 +373,7 @@ def run():
 
             if rx_pending:
                 batch = rx_pending[:]
-                del rx_pending[:len(batch)]
+                del rx_pending[: len(batch)]
                 _rx_log_flush(batch)
 
             now = time.ticks_ms()

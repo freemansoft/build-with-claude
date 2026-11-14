@@ -18,8 +18,8 @@ for strings, which UIFlow uses internally for other config we
 don't write). Authoritative source:
 https://raw.githubusercontent.com/m5stack/uiflow-micropython/master/m5stack/modules/startup/__init__.py
 
-| Key           | Type | Example value | Notes |
-|---------------|------|---------------|-------|
+| Key           | Type | Example value | Notes                                                                                                                                                                                                              |
+| ------------- | ---- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `boot_option` | u8   | `2`           | 0 = factory test, 1 = UIFlow launcher, 2 = run `/flash/main.py`. `install_apps.py` sets this to `2` when the bundle ships a root `main.py` so our launcher takes the boot flow instead of UIFlow's pairing screen. |
 
 ## Failure modes
@@ -36,11 +36,13 @@ shows up in the namespace listing. UIFlow's startup is strict
 about types.
 
 **Fix:** From the REPL:
+
 ```python
 import esp32
+
 nvs = esp32.NVS("uiflow")
 nvs.erase_key("<key>")
-nvs.set_str("<key>", "<value>")   # or set_u8 for integer keys
+nvs.set_str("<key>", "<value>")  # or set_u8 for integer keys
 nvs.commit()
 ```
 
@@ -62,9 +64,12 @@ mishandles indented blocks sent line-by-line):
 
 ```python
 import esp32
+
 nvs = esp32.NVS("uiflow")
-try: nvs.erase_key("boot_option")
-except Exception: pass
+try:
+    nvs.erase_key("boot_option")
+except Exception:
+    pass
 nvs.set_u8("boot_option", 2)
 nvs.commit()
 print("NVS-OK")

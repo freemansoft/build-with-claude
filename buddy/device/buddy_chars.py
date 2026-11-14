@@ -88,8 +88,8 @@ def _ensure_dir(path: str):
 
 class CharReceiver:
     def __init__(self):
-        self._current_char = None      # name of the char currently in flight
-        self._current_file = None      # {"path", "size", "written", "fp"}
+        self._current_char = None  # name of the char currently in flight
+        self._current_file = None  # {"path", "size", "written", "fp"}
         self._bytes_this_pack = 0
 
     def _close_fp(self):
@@ -267,7 +267,12 @@ class CharReceiver:
         self._close_fp()
         name = self._current_char
         self._current_char = None
-        return {"ack": "char_end", "ok": True, "name": name or "", "bytes": self._bytes_this_pack}
+        return {
+            "ack": "char_end",
+            "ok": True,
+            "name": name or "",
+            "bytes": self._bytes_this_pack,
+        }
 
 
 def sweep_partials():

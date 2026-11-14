@@ -60,7 +60,7 @@ _STRIP_Y = 203
 _MAIN_H = _STRIP_Y - 1 - _MAIN_Y  # stop above the strip hairline
 _FOOTER_Y = 176
 _LINE_H = 22  # DejaVu18 cell is 21 px tall on hardware; +1 for descenders
-_BOX_Y = 38   # request box / pet area, just under the header
+_BOX_Y = 38  # request box / pet area, just under the header
 _BOX_H = 130  # five 24 px rows + padding, ending above the footer at y=176
 _BOX_ROWS = 5
 
@@ -103,9 +103,9 @@ _NAP_EXIT = -8
 # Core2 v1.0 (see apps/claude_buddy.py): 127 -> 40 saves ~12 mA, 40 ->
 # 10 another ~4 mA.
 _BRIGHT_FULL = 127
-_BRIGHT_IDLE = 40     # on battery, nothing happening
-_BRIGHT_ASLEEP = 10   # on battery, pet asleep
-_BRIGHT_NAP = 10      # face-down, battery or USB
+_BRIGHT_IDLE = 40  # on battery, nothing happening
+_BRIGHT_ASLEEP = 10  # on battery, pet asleep
+_BRIGHT_NAP = 10  # face-down, battery or USB
 # On battery, full brightness for this long after a button press,
 # touch, shake or plugging in / unplugging.
 _ACTIVE_MS = 30 * 1000
@@ -140,7 +140,7 @@ def _wrap(text, max_w, n):
             if cut > len(line) // 2:
                 line = line[:cut]
         lines.append(line)
-        rest = rest[len(line):].lstrip()
+        rest = rest[len(line) :].lstrip()
     return lines
 
 
@@ -197,7 +197,7 @@ class BuddyUI:
         # Sensors (read only while the pet is on screen).
         self._accel_base = 1.0
         self._imu_skip = False
-        self._down = 0            # face-down counter, see _NAP_ENTER/_EXIT
+        self._down = 0  # face-down counter, see _NAP_ENTER/_EXIT
         self._napping = False
         # Backlight (see _tick_brightness). Starts "active" so the
         # screen is full brightness for a while after launch.
@@ -348,9 +348,9 @@ class BuddyUI:
 
     def restore_button_hints(self):
         """Label each touch button. Modes:
-          - unpair confirmation: A confirm / B cancel
-          - passkey on screen:   only C (hold to exit)
-          - otherwise:           A approve / B deny / C hold-to-exit
+        - unpair confirmation: A confirm / B cancel
+        - passkey on screen:   only C (hold to exit)
+        - otherwise:           A approve / B deny / C hold-to-exit
         """
         _LCD.fillRect(0, _STRIP_Y - 1, _W, 1, ORANGE)
         _LCD.fillRect(0, _STRIP_Y, _W, _H - _STRIP_Y, DARK)
@@ -403,7 +403,10 @@ class BuddyUI:
         """Pick the pet's state from the latest heartbeat and sensors, and
         advance its animation. Only draws while the pet's area is on
         screen. The small alarmed pet in a request box just animates."""
-        if self._showing_connected() and self._drawn.get("box") in ("prompt", "waiting"):
+        if self._showing_connected() and self._drawn.get("box") in (
+            "prompt",
+            "waiting",
+        ):
             self._alert_pet.tick()
         if not (self._showing_connected() and self._drawn.get("box") == "pet"):
             # A request (or another view) took over: you'll want to
@@ -426,7 +429,10 @@ class BuddyUI:
                 self._pet_quiet_since = now
             # Only measured until it falls asleep (60 s), so ticks_ms
             # wraparound (~6 days) never comes into it.
-            if not self._pet_asleep and time.ticks_diff(now, self._pet_quiet_since) >= _PET_SLEEP_MS:
+            if (
+                not self._pet_asleep
+                and time.ticks_diff(now, self._pet_quiet_since) >= _PET_SLEEP_MS
+            ):
                 self._pet_asleep = True
             state = "sleep" if self._pet_asleep else "idle"
         self._pet.set_state(state)
@@ -498,7 +504,10 @@ class BuddyUI:
         Face-down nap: dim. On USB: full. On battery: full while a
         request, pairing or unpair screen is up or for a while after
         activity, low while idle, lower while the pet sleeps."""
-        if self._active and time.ticks_diff(time.ticks_ms(), self._active_since) >= _ACTIVE_MS:
+        if (
+            self._active
+            and time.ticks_diff(time.ticks_ms(), self._active_since) >= _ACTIVE_MS
+        ):
             # Checked every loop, so this never waits long enough for
             # ticks_ms wraparound to matter.
             self._active = False
@@ -672,7 +681,9 @@ class BuddyUI:
                 if self._last_tool:
                     name, summary = self._last_tool
                     tool = name + (": " + summary if summary else "")
-                middle = tuple((line, CREAM) for line in _wrap(tool, box_w, _BOX_ROWS - 2))
+                middle = tuple(
+                    (line, CREAM) for line in _wrap(tool, box_w, _BOX_ROWS - 2)
+                )
                 title = "Waiting for approval"
             else:
                 # Several sessions: the latest tool call may belong to a
@@ -691,7 +702,9 @@ class BuddyUI:
             rows = tuple((line, GRAY_MID) for line in msg)
         else:
             kind, border = "msg", None
-            rows = ((hb.get("msg", ""), GRAY_MID),) + (("", GRAY_MID),) * (_BOX_ROWS - 1)
+            rows = ((hb.get("msg", ""), GRAY_MID),) + (("", GRAY_MID),) * (
+                _BOX_ROWS - 1
+            )
 
         if self._drawn.get("box") != kind:
             if kind != "pet":

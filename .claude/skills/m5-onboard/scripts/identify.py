@@ -29,6 +29,7 @@ import sys
 import time
 
 import vendor_path
+
 vendor_path.ensure_on_syspath()
 
 import mpy_repl
@@ -36,9 +37,7 @@ import mpy_repl
 
 # Lower-cased substring of the MicroPython build name -> firmware
 # variant (a key of fetch_firmware.VARIANTS). Checked in order.
-_MACHINE_TO_VARIANT = (
-    ("core2", "core2"),
-)
+_MACHINE_TO_VARIANT = (("core2", "core2"),)
 
 # Firmware variant -> app bundle to use when the caller asks for the
 # generic "buddy" bundle. Variants not listed keep "buddy" (the

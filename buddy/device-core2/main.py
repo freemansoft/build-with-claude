@@ -134,7 +134,7 @@ def _draw_chrome(apps, cursor, scroll_top=0):
     _LCD.drawString("Claude Buddy Launcher", 8, 5)
 
     y = _MENU_Y
-    visible = apps[scroll_top:scroll_top + _MAX_VISIBLE]
+    visible = apps[scroll_top : scroll_top + _MAX_VISIBLE]
     for i, (display, _mod) in enumerate(visible):
         if scroll_top + i == cursor:
             _LCD.fillRect(6, y - 4, _MENU_RIGHT - 6, _ROW_H - 2, _ORANGE)

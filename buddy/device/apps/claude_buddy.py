@@ -164,6 +164,7 @@ def run():
     # launcher reconnects on the next reboot via main.py.
     try:
         import network
+
         sta = network.WLAN(network.STA_IF)
         if sta.active():
             try:
@@ -256,6 +257,7 @@ def run():
     # since we have no other allocation pressure between launcher
     # exit and BLE init.
     import gc
+
     gc.collect()
     print("claude_buddy: gc done, free=", gc.mem_free())
     print("claude_buddy: constructing BuddyBLE")

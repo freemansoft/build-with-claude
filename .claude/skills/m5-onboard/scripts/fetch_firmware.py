@@ -79,6 +79,7 @@ def _open_https(url: str, timeout: float = 30.0):
          by any other pip install (very common).
       3. Hard fail with the Install-Certificates hint.
     """
+
     def _is_cert_error(exc: BaseException) -> bool:
         # urllib wraps the SSL error in URLError; inspect .reason to unwrap.
         if isinstance(exc, ssl.SSLCertVerificationError):
@@ -104,7 +105,7 @@ def _open_https(url: str, timeout: float = 30.0):
             "/Applications/Python\\ 3.x/Install\\ Certificates.command\n"
             "  - any platform: pip install --user certifi\n"
             "Refusing to fetch firmware over an unverified connection."
-        )
+        ) from None
     ctx = ssl.create_default_context(cafile=certifi.where())
     return urllib.request.urlopen(url, timeout=timeout, context=ctx)
 
@@ -178,10 +179,7 @@ def _find_entry(manifest: list, spec: dict) -> dict:
     for e in manifest:
         if (e.get("category") or "").lower() == cat and (e.get("name") or "") == name:
             return e
-    seen = [
-        e.get("name") for e in manifest
-        if (e.get("category") or "").lower() == cat
-    ]
+    seen = [e.get("name") for e in manifest if (e.get("category") or "").lower() == cat]
     raise SystemExit(
         f"No manifest entry with category={cat!r} name={name!r}. "
         f"Seen in category: {seen}"
@@ -213,9 +211,12 @@ def _pick_version(entry: dict, spec: dict) -> dict:
             f"Available: {[v.get('version') for v in entry.get('versions', [])]}"
         )
     stable = [
-        v for v in candidates
-        if not any(x in (v.get("version") or "").lower()
-                   for x in ("rc", "alpha", "beta", "hotfix"))
+        v
+        for v in candidates
+        if not any(
+            x in (v.get("version") or "").lower()
+            for x in ("rc", "alpha", "beta", "hotfix")
+        )
     ]
     # Manifest order is chronological; last = newest.
     return (stable or candidates)[-1]
@@ -317,7 +318,7 @@ def download(entry: dict, version: dict, dest_dir: str | None = None) -> str:
             except (binascii.Error, ValueError) as e:
                 raise SystemExit(
                     f"Malformed Content-MD5 header {expected_b64!r}: {e}"
-                )
+                ) from e
             if len(expected) != 16:
                 raise SystemExit(
                     f"Content-MD5 wrong length ({len(expected)} bytes, "
