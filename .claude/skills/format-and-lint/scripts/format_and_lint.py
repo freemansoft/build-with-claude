@@ -24,7 +24,25 @@ MPY_CROSS_VERSION = "v1.22"  # UIFlow 2.0's MicroPython
 PRETTIER_EXTS = {".md", ".json", ".yaml", ".yml"}
 DEVICE_DIRS = ("buddy/device", "buddy/device-core2")
 
-ROOT = Path(__file__).resolve().parents[4]
+
+def _repo_root():
+    """The checkout you're in (so a worktree checks itself), falling
+    back to the checkout this script lives in."""
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        if out:
+            return Path(out)
+    except (OSError, subprocess.CalledProcessError):
+        pass
+    return Path(__file__).resolve().parents[4]
+
+
+ROOT = _repo_root()
 
 
 def venv_python():

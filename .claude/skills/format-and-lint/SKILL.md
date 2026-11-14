@@ -58,6 +58,10 @@ python3 .claude/skills/format-and-lint/scripts/format_and_lint.py buddy/device-c
   prose stays as written.
 - **Vendored pyserial** (`.claude/skills/m5-onboard/scripts/vendor/`) is
   excluded from both tools. Leave it as upstream ships it.
+- **Worktrees:** the script checks the git checkout you run it from, so
+  in a worktree it checks that worktree. Claude Code's agent worktrees
+  (`.claude/worktrees/`) are gitignored, which keeps both tools out of
+  them.
 - **Symlinks:** `buddy/device-core2/` links several files to
   `buddy/device/`. Formatting one formats both, and the change appears
   in git under `buddy/device/`.

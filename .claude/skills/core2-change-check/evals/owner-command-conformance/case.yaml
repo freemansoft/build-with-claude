@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: owner-command-conformance
+expected_outcome: |
+  Identifies that Desktop sends {"cmd":"owner","name":...} while buddy_protocol.py reads msg["owner"], grounded in the upstream REFERENCE.md, notes the shared module also affects the Cardputer, and changes no code.
