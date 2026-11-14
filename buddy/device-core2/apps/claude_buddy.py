@@ -26,6 +26,7 @@ for _p in ("/flash", "/flash/apps"):
         sys.path.insert(0, _p)
 
 import gc
+import json
 import time
 
 import M5
@@ -175,8 +176,37 @@ class _Protocol(buddy_protocol.BuddyProtocol):
     the shared module's approvals-per-minute value doesn't match that,
     and velocity isn't supported on the Core2 for now.
 
+    The ``owner`` command is read the reference's way too: Desktop sends
+    ``{"cmd":"owner","name":"Felix"}``, while the shared module reads an
+    ``owner`` key and so always stored an empty owner. The Core2 stores
+    and acks the owner but doesn't display it.
+
     Overriding here keeps the Cardputer bundle unchanged until it can be
     tested; see buddy/device-core2/README.md "Status reply"."""
+
+    def on_line(self, raw: bytes) -> None:
+        # Only lines that mention "owner" are parsed here, so heartbeats
+        # aren't decoded twice; everything else goes to the shared code.
+        if b"owner" in raw:
+            try:
+                msg = json.loads(raw.decode("utf-8"))
+            except (ValueError, UnicodeError):
+                msg = None
+            if isinstance(msg, dict) and msg.get("cmd") == "owner":
+                self._on_owner(msg)
+                return
+        super().on_line(raw)
+
+    def _on_owner(self, msg):
+        name = msg.get("name")
+        name = name.strip() if isinstance(name, str) else ""
+        if not name:
+            # Don't wipe a stored owner over a malformed command.
+            self._send({"ack": "owner", "ok": False, "error": "missing name"})
+            return
+        self.state.set_owner(name)
+        self.ui.update_identity(self.state.name, self.state.owner)
+        self._send({"ack": "owner", "ok": True})
 
     def _build_status_ack(self):
         flat = super()._build_status_ack()

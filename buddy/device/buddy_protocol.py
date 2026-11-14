@@ -9,6 +9,8 @@ Host → device messages (what we receive):
     {"cmd":"status"}                             - ask us to ack state
     {"cmd":"name", "name":"..."}                 - rename the buddy
     {"cmd":"owner", "owner":"..."}               - set owner string
+        (REFERENCE.md sends the owner in "name"; the Core2 app overrides
+        this in its _Protocol subclass, the Cardputer still reads "owner")
     {"cmd":"unpair"}                             - wipe pairing + state
     {"cmd":"char_begin"|"file"|"chunk"|...}      - folder push
     heartbeat, no "cmd": {"total":N, "running":N, "waiting":N,

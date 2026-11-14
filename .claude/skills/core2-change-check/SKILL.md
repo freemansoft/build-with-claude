@@ -109,6 +109,12 @@ don't report a known gap as new, but do report a change that widens
 one. Add any newly found or newly intended deviation to that file, and
 mirror wire-format changes in `buddy/references/protocol.md`.
 
+Conform on the wire even for data the device doesn't use. Store and
+ack a field the way the reference defines it, even if nothing on screen
+shows it, and don't add UI to display protocol data unless the user
+asks. Getting the protocol right is a separate decision from what the
+Core2 chooses to show.
+
 Fix a deviation the change itself introduces. Report other deviations
 you find to the user rather than fixing them on the side, because some
 also touch the Cardputer bundle, which may not be testable.

@@ -182,6 +182,11 @@ shows `--s`. It does this with a small `_Protocol` subclass in
 Cardputer bundle) still sends the older shape — see `../README.md` for
 the gap and the planned fix.
 
+The same subclass reads the `owner` command the reference's way
+(`{"cmd":"owner","name":"Felix"}`; the shared module looks for an
+`owner` key). The Core2 stores the owner and reports it in its
+`hello`, but doesn't show it on screen.
+
 `stats.deny` counts only denials pressed on the device (B); requests
 denied in the Claude app never reach it. `stats.nap` (idle periods,
 not seconds) and `stats.lvl` (from approvals, not tokens) differ from
