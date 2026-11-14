@@ -139,7 +139,7 @@ and a one-line reason:
 ```
 Core2 change check
 - Power: ok — new toast uses _tick_brightness via note_activity(); no new periodic work
-- Protocol: issue — owner ack reads msg["owner"]; REFERENCE.md sends "name" (pre-existing, not fixed)
+- Protocol: issue — acks use "err"; REFERENCE.md names the key "error" (pre-existing, not fixed)
 - Docs: changed — power.md backlight table
 - Format/lint: ok
 - Hardware: untested (no device attached)

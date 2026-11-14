@@ -182,9 +182,8 @@ shows `--s`. It does this with a small `_Protocol` subclass in
 Cardputer bundle) still sends the older shape — see `../README.md` for
 the gap and the planned fix.
 
-The same subclass reads the `owner` command the reference's way
-(`{"cmd":"owner","name":"Felix"}`; the shared module looks for an
-`owner` key). The Core2 stores the owner but deliberately doesn't show
+The owner from Desktop's `{"cmd":"owner","name":"Felix"}` is stored
+(shared `buddy_protocol.py`), but the Core2 deliberately doesn't show
 it on screen: the protocol is handled correctly whether or not the
 display uses it.
 

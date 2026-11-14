@@ -1,4 +1,4 @@
 schema_version: "1.1"
 name: owner-command-conformance
 expected_outcome: |
-  Explains that the Core2 handles Desktop's {"cmd":"owner","name":...} correctly (stores and acks it per the upstream REFERENCE.md) but deliberately doesn't display the owner, without proposing new UI to show it; notes that the Cardputer's shared handler still reads an "owner" key; changes no code.
+  Explains that the shared buddy_protocol.py handles Desktop's {"cmd":"owner","name":...} correctly (stores and acks it per the upstream REFERENCE.md) and that the Core2 deliberately doesn't display the owner, without proposing new UI to show it; changes no code.

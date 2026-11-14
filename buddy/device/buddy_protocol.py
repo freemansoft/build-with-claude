@@ -8,9 +8,7 @@ the BLE transport stays dumb.
 Host → device messages (what we receive):
     {"cmd":"status"}                             - ask us to ack state
     {"cmd":"name", "name":"..."}                 - rename the buddy
-    {"cmd":"owner", "owner":"..."}               - set owner string
-        (REFERENCE.md sends the owner in "name"; the Core2 app overrides
-        this in its _Protocol subclass, the Cardputer still reads "owner")
+    {"cmd":"owner", "name":"..."}                - set owner string
     {"cmd":"unpair"}                             - wipe pairing + state
     {"cmd":"char_begin"|"file"|"chunk"|...}      - folder push
     heartbeat, no "cmd": {"total":N, "running":N, "waiting":N,
@@ -87,9 +85,17 @@ class BuddyProtocol:
             self._send({"ack": "name", "ok": bool(new), "name": self.state.name})
             return
         if cmd == "owner":
-            self.state.set_owner(msg.get("owner", "").strip())
+            # REFERENCE.md: {"cmd":"owner","name":"Felix"} -- the owner's
+            # name is in "name". Refuse an empty one rather than wiping
+            # the stored owner.
+            owner = msg.get("name")
+            owner = owner.strip() if isinstance(owner, str) else ""
+            if not owner:
+                self._send({"ack": "owner", "ok": False, "error": "missing name"})
+                return
+            self.state.set_owner(owner)
             self.ui.update_identity(self.state.name, self.state.owner)
-            self._send({"ack": "owner", "ok": True, "owner": self.state.owner})
+            self._send({"ack": "owner", "ok": True})
             return
         if cmd == "unpair":
             # Defer the actual wipe until the user confirms on the
