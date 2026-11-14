@@ -111,9 +111,13 @@ mirror wire-format changes in `buddy/references/protocol.md`.
 
 Conform on the wire even for data the device doesn't use. Store and
 ack a field the way the reference defines it, even if nothing on screen
-shows it, and don't add UI to display protocol data unless the user
-asks. Getting the protocol right is a separate decision from what the
-Core2 chooses to show.
+shows it. Getting the protocol right is a separate decision from what
+the Core2 shows, and what it shows is the user's call. For example, the
+owner name is handled correctly but deliberately not displayed. When
+something isn't shown on purpose, say that and stop. Don't add UI for
+it, and don't suggest where it could go (a header slot, an idle line)
+unless the user asks for display ideas. Even "it never shows up" is a
+question about why, not a request for a new screen element.
 
 Fix a deviation the change itself introduces. Report other deviations
 you find to the user rather than fixing them on the side, because some
