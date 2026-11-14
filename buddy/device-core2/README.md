@@ -55,7 +55,11 @@ Connected, top to bottom:
 - **Bottom row** — `Today: 53.3k tokens` (the heartbeat's
   `tokens_today`: output tokens since local midnight) and the battery
   (`100% USB` on USB power, `87%` on battery).
-- **Button labels** — Approve · Deny · Hold: exit.
+- **Button labels** — `Hold: exit` over C always. Over A and B:
+  **Approve** · **Deny** while there's a request the device can answer;
+  **Approve in the app** (yellow) while something is waiting that has
+  to be answered in Claude; blank otherwise. When A and B have nothing
+  to answer, pressing them just wakes the screen.
 
 Level and approve/deny counts are still kept on the device and reported
 to Claude Desktop, but aren't shown on screen.
@@ -159,7 +163,8 @@ Code sessions in Claude Desktop: Bash requests with short commands
 20-byte BLE payload (the app doesn't request a larger MTU), which may
 be why Desktop leaves larger prompts out — untested. Without a request
 id there is nothing to answer, so the device shows a yellow **Waiting
-for approval** box and "Approve in the app". With one session
+for approval** box, and the labels over A and B read "Approve in the
+app". With one session
 running it also shows the tool call (taken from Desktop's `evt`
 stream); with several, it shows "N waiting for approval" and how many
 sessions are running instead, since the latest tool call may belong to

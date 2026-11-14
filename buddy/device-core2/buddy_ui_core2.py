@@ -67,6 +67,7 @@ _BOX_ROWS = 5
 # Horizontal centres of the three Core2 touch buttons (BtnA/B/C zones
 # are each a third of the 320 px width).
 _BTN_X = (53, 160, 267)
+_BTN_SPAN_AB = 2 * _W // 3  # A and B zones together, from x=0
 
 _VIBRATE_LEVEL = 200
 _VIBRATE_MS = 300
@@ -188,6 +189,10 @@ class BuddyUI:
         # (observed for longer commands, ~70+ chars, and question dialogs).
         self._last_tool = None
         self._buzzed_prompt_id = None
+        # True after A/B answered the prompt on screen, until the next
+        # heartbeat. Mirrors buddy_protocol, which forgets the prompt
+        # once answered and takes it back if Desktop re-sends it.
+        self._answered = False
         self._header_left = None  # last header-left (text, colour, right)
         self._pet = buddy_pet_core2.Pet(_PET_X, _PET_Y, BLACK)
         self._alert_pet = buddy_pet_core2.Pet(_ALERT_X, _ALERT_Y, BLACK, scale=2)
@@ -258,15 +263,16 @@ class BuddyUI:
         self.restore_button_hints()
 
     def update_heartbeat(self, hb: dict):
-        prev_pending = bool(self._prompt)
+        prev_hints = self._hint_mode()
         prev_waiting = self._count("waiting")
         self._last = hb
         self._prompt = hb.get("prompt")
+        self._answered = False
         if self._showing_connected():
             self._draw_connected_main()  # incremental: no flicker
         else:
             self._draw_main()
-        if bool(self._prompt) != prev_pending:
+        if self._hint_mode() != prev_hints:
             self.restore_button_hints()
         # Buzz once per new request. Heartbeats are combined across all
         # sessions, so key off things that only change when something
@@ -287,6 +293,23 @@ class BuddyUI:
             return int(self._last.get(key, 0) or 0)
         except (TypeError, ValueError, AttributeError):
             return 0
+
+    def _can_answer(self) -> bool:
+        """A/B would answer something right now: the heartbeat carried a
+        prompt with an id (as buddy_protocol requires) and it hasn't
+        been answered yet."""
+        p = self._prompt
+        return bool(p and p.get("id")) and not self._answered
+
+    def _hint_mode(self) -> str:
+        """What the A/B part of the hint strip shows in the normal
+        view: "answer" (Approve / Deny), "app" (approve in the Claude
+        app) or "none" (blank)."""
+        if self._can_answer():
+            return "answer"
+        if self.waiting_in_app():
+            return "app"
+        return "none"
 
     def waiting_in_app(self) -> bool:
         """Desktop says something is waiting for approval, but sent no
@@ -330,6 +353,7 @@ class BuddyUI:
             self._draw_footer(stats, battery)
 
     def flash_decision(self, decision: str):
+        self._answered = True
         if decision == "once" and self._prompt_quick:
             # Hearts once the request box clears and the pet is back.
             self._pet.play_once("heart", _PET_ONCE_MS)
@@ -350,7 +374,9 @@ class BuddyUI:
         """Label each touch button. Modes:
         - unpair confirmation: A confirm / B cancel
         - passkey on screen:   only C (hold to exit)
-        - otherwise:           A approve / B deny / C hold-to-exit
+        - prompt to answer:    A approve / B deny / C hold-to-exit
+        - waiting in the app:  "Approve in the app" across A+B / C
+        - otherwise:           only C; A and B have nothing to do
         """
         _LCD.fillRect(0, _STRIP_Y - 1, _W, 1, ORANGE)
         _LCD.fillRect(0, _STRIP_Y, _W, _H - _STRIP_Y, DARK)
@@ -360,14 +386,18 @@ class BuddyUI:
         elif self._passkey is not None:
             labels = (("", CREAM), ("", CREAM), ("Hold: exit", GRAY_MID))
         else:
-            # Approve/Deny are brighter while a prompt is pending so it
-            # is obvious they will do something right now.
-            live = bool(self._prompt)
-            labels = (
-                ("Approve", GREEN if live else CREAM),
-                ("Deny", RED if live else CREAM),
-                ("Hold: exit", GRAY_MID),
-            )
+            mode = self._hint_mode()
+            if mode == "answer":
+                labels = (("Approve", GREEN), ("Deny", RED), ("Hold: exit", GRAY_MID))
+            else:
+                # A/B can't answer anything. Leave their labels blank;
+                # if something is waiting in the app, say so across the
+                # space they'd use (left of C's label).
+                labels = (("", CREAM), ("", CREAM), ("Hold: exit", GRAY_MID))
+                if mode == "app":
+                    t = _clip("Approve in the app", _BTN_SPAN_AB - 8)
+                    _LCD.setTextColor(YELLOW, DARK)
+                    _LCD.drawString(t, _center(t, _BTN_SPAN_AB // 2), _STRIP_Y + 8)
         for (text, color), cx in zip(labels, _BTN_X):
             if text:
                 _LCD.setTextColor(color, DARK)
@@ -656,7 +686,8 @@ class BuddyUI:
         _font("DejaVu18")  # _wrap/_clip below measure in this font
 
         # Request area (y=38..167, five rows): an orange prompt box
-        # (answerable here), a yellow waiting box (approve in the app),
+        # (answerable here), a yellow waiting box (approve in the app,
+        # which the hint strip says),
         # or the pet and the status message. Only a change of *kind*
         # clears it. Request boxes: the alarmed 64 px pet on the left,
         # text beside it.
@@ -682,7 +713,7 @@ class BuddyUI:
                     name, summary = self._last_tool
                     tool = name + (": " + summary if summary else "")
                 middle = tuple(
-                    (line, CREAM) for line in _wrap(tool, box_w, _BOX_ROWS - 2)
+                    (line, CREAM) for line in _wrap(tool, box_w, _BOX_ROWS - 1)
                 )
                 title = "Waiting for approval"
             else:
@@ -690,10 +721,10 @@ class BuddyUI:
                 # different session than the one waiting, so don't guess.
                 middle = (("{} sessions running".format(running), CREAM),) + (
                     ("", CREAM),
-                ) * (_BOX_ROWS - 3)
+                ) * (_BOX_ROWS - 2)
                 title = "{} waiting for approval".format(waiting)
-            where = "Approve in the app" if alert else "Approve in the Claude app"
-            rows = ((title, YELLOW),) + middle + ((where, GRAY_MID),)
+            # "Approve in the app" is in the hint strip under A/B.
+            rows = ((title, YELLOW),) + middle
         elif self._pet.available():
             # Nothing to approve: the pet on the left, Desktop's status
             # message wrapped beside it.
