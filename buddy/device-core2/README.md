@@ -10,6 +10,7 @@ touch buttons under the screen). Port of the Cardputer-Adv bundle in
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
 | `buddy_ble.py`, `buddy_protocol.py`, `buddy_state.py`, `buddy_chars.py`, `burst_frames.py` | symlinks to `../device/` — same BLE stack, wire protocol, NVS state and sprite frames |
 | `buddy_ui_core2.py`                                                                        | Core2 view (320x240, DejaVu18/24/56, vibration on new prompts)                        |
+| `buddy_leds_core2.py`                                                                      | flashes the AWS edition's LED bars for requests (USB only)                            |
 | `buddy_pet_core2.py`                                                                       | plays the pet animation (see [Pet](#pet))                                             |
 | `pet_frames.py`                                                                            | the pet's frames — generated from `pet_art/`, don't edit by hand                      |
 | `apps/claude_buddy.py`                                                                     | Core2 app loop: touch buttons, real AXP192 battery readings                           |
@@ -170,6 +171,12 @@ stream); with several, it shows "N waiting for approval" and how many
 sessions are running instead, since the latest tool call may belong to
 a different session than the one waiting.
 
+On USB, the Core2 for AWS IoT EduKit also flashes its two side LED
+bars once every 5 s while a request (either box) is outstanding, and
+stops as soon as it closes for any reason. They stay off on battery.
+The app can't detect the LED bars, so it assumes they're there on USB;
+see [power.md](power.md#led-bars).
+
 Heartbeats are combined across all sessions, so the device buzzes once
 when the waiting count goes up or a prompt with a new id arrives — not
 on tool calls, which other (auto-approved) sessions also send.
@@ -229,6 +236,11 @@ Ideas that have been scoped but not started. Nothing here is built yet.
   reported in the [Hardware Buddy reference](https://github.com/anthropics/claude-desktop-buddy/blob/main/REFERENCE.md)'s
   meaning (tokens, nap seconds).
 - **More characters**, e.g. a robot, picked on the device.
+- **Detect the LED bars.** The request flash assumes the AWS IoT
+  EduKit LED bars are present whenever the Core2 is on USB. Look for a
+  way to tell an AWS edition (or any battery base with LEDs) from a
+  plain Core2, so the flash runs only where the bars exist, and maybe
+  on battery too when a base is known to be there.
 - **Sounds.** Short tones from the Core2's speaker for requests, hearts,
   dizzy and level-ups, with an off switch and battery-aware use.
 

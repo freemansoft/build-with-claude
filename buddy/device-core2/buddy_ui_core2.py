@@ -12,6 +12,9 @@ care which display is underneath. Differences from the Cardputer view:
 - The Core2 has a vibration motor; a short buzz announces a newly
   pending permission prompt so you notice it without staring at the
   screen. ``tick()`` must be called from the main loop to stop it.
+- On USB, the AWS IoT EduKit edition's two side LED bars flash once
+  every 5 s while a request is outstanding (``buddy_leds_core2``,
+  also driven from ``tick()``).
 
 Layout (all y values are top-left of the glyph cell; drawString uses
 TL_DATUM by default on UIFlow 2.0):
@@ -34,6 +37,7 @@ import time
 
 import M5
 
+import buddy_leds_core2
 import buddy_pet_core2
 
 # Anthropic palette — same values as buddy_ui_cp.py.
@@ -215,6 +219,7 @@ class BuddyUI:
         # once _QUICK_APPROVE_MS has passed (so no long timers).
         self._prompt_since = 0
         self._prompt_quick = False
+        self._leds = buddy_leds_core2.LedBars()
         _LCD.fillScreen(BLACK)
         self._redraw_chrome()
 
@@ -315,6 +320,13 @@ class BuddyUI:
         """Desktop says something is waiting for approval, but sent no
         prompt we could answer — it has to be approved in the app."""
         return self._count("waiting") > 0 and not self._prompt
+
+    def request_open(self) -> bool:
+        """A permission request is outstanding: a prompt not yet
+        answered on the device, or one waiting in the app. Goes false
+        once it's answered here, Desktop stops reporting it (answered
+        or cancelled in the app), or the link drops."""
+        return bool(self._prompt and not self._answered) or self.waiting_in_app()
 
     def note_tool(self, name: str, summary: str, tool_id=None):
         """Record the latest tool call. State only, no drawing — safe to
@@ -428,6 +440,11 @@ class BuddyUI:
             self._prompt_quick = False
         self._tick_pet()
         self._tick_brightness()
+        self._leds.tick(self.request_open(), not self._on_battery)
+
+    def leds_off(self):
+        """Turn the LED bars off (on exit, before the reset)."""
+        self._leds.off()
 
     def _tick_pet(self):
         """Pick the pet's state from the latest heartbeat and sensors, and
