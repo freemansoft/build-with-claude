@@ -364,6 +364,10 @@ def run():
         except Exception:
             pass
         try:
+            ui.leds_off()  # LEDs keep their colour across the reset
+        except Exception:
+            pass
+        try:
             ble.deinit()
         except Exception as e:
             print("claude_buddy: deinit warning:", e)

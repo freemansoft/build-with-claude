@@ -41,11 +41,12 @@ between USB and battery takes effect within about 3 s.
 
 ## What changes on battery
 
-| Setting                                                         | On USB     | On battery                               |
-| --------------------------------------------------------------- | ---------- | ---------------------------------------- |
-| 5 V output to the M-Bus / Grove ports (`M5.Power.setExtOutput`) | on         | off (nothing in this app uses the ports) |
-| CPU speed (`machine.freq`)                                      | 240 MHz    | 80 MHz (BLE and the pet run fine)        |
-| Backlight                                                       | full (127) | follows activity (below)                 |
+| Setting                                                         | On USB                                              | On battery                               |
+| --------------------------------------------------------------- | --------------------------------------------------- | ---------------------------------------- |
+| 5 V output to the M-Bus / Grove ports (`M5.Power.setExtOutput`) | on                                                  | off (nothing in this app uses the ports) |
+| CPU speed (`machine.freq`)                                      | 240 MHz                                             | 80 MHz (BLE and the pet run fine)        |
+| Backlight                                                       | full (127)                                          | follows activity (below)                 |
+| LED bars (AWS IoT EduKit edition, GPIO25)                       | flash once every 5 s while a request is outstanding | off                                      |
 
 ### Backlight
 
@@ -64,6 +65,23 @@ first 30 s after launch.
 The backlight level is picked in one place (`_tick_brightness`) on
 every pass of the main loop. It's sent to the screen only when the
 level changes.
+
+### LED bars
+
+The Core2 for AWS IoT EduKit has two side bars of five SK6812 LEDs in
+its battery base. On USB they flash amber for 200 ms every 5 s while a
+permission request is outstanding (an **Allow:** or **Waiting for
+approval** box). They stop as soon as the request closes: answered on
+the device, answered or cancelled in the app, or the link drops. On
+battery they stay off. They're turned off when switching to battery
+and before the exit reset (the LEDs keep their colour across a reset
+while they have power).
+
+The app can't tell an AWS edition from a plain Core2 (or detect any
+battery base), so it assumes the bars are there whenever it's on USB.
+On a plain Core2 that means GPIO25 on the M-Bus gets LED data while a
+request is open on USB. Not measured: the bars only light on USB, so
+they don't affect battery draw.
 
 ## What the device reports
 
